@@ -105,10 +105,8 @@ export class OrganizationChildrenService {
     organizationId: string,
     actor: Actor,
   ): Promise<OrganizationChild[]> {
-    const policyResult = this.childAccessPolicy.canListOrganizationChildren(
-      actor,
-      organizationId,
-    );
+    const policyResult =
+      this.childAccessPolicy.canListOrganizationChildren(actor);
     if (!policyResult.allowed) {
       throw new Error(policyResult.reason);
     }

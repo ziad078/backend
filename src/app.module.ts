@@ -21,8 +21,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { PaymentsModule } from 'src/payments/payments.module';
 import { DealsModule } from 'src/deals/deals.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { UploadsModule } from './uploads/uploads.module';
-import { LegacyTestsModule } from './legacy-tests/legacy-tests.module';
 import { CommonModule } from './common/common.module';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 import { CapacityModule } from './capacity/capacity.module';
@@ -93,8 +91,6 @@ import { CapacityModule } from './capacity/capacity.module';
     EvaluationsModule,
     PaymentsModule,
     DealsModule,
-    UploadsModule,
-    LegacyTestsModule,
     CapacityModule,
   ],
   controllers: [AppController],

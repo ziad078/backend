@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Actor, Policy, PolicyResult } from 'src/common/policies/base-policy.interface';
+import {
+  Actor,
+  Policy,
+  PolicyResult,
+} from 'src/common/policies/base-policy.interface';
 import { OrganizationChild } from '../entities/organization-child.entity';
 import { PrivateChild } from '../entities/private-child.entity';
 import { UserRole } from 'src/common/enums/role.enum';
@@ -17,7 +21,10 @@ export class ChildAccessPolicy implements Policy<Child> {
       if (this.isParentOfChild(actor, resource)) {
         return { allowed: true };
       }
-      return { allowed: false, reason: 'Parent can only view their own children' };
+      return {
+        allowed: false,
+        reason: 'Parent can only view their own children',
+      };
     }
 
     if (actor.roles.includes(UserRole.ORGANIZATIONOWNER)) {
@@ -25,9 +32,16 @@ export class ChildAccessPolicy implements Policy<Child> {
         if (resource.organization.ownerId === actor.userId) {
           return { allowed: true };
         }
-        return { allowed: false, reason: 'Organization owner can only view their organization children' };
+        return {
+          allowed: false,
+          reason:
+            'Organization owner can only view their organization children',
+        };
       }
-      return { allowed: false, reason: 'Organization owner cannot view private children' };
+      return {
+        allowed: false,
+        reason: 'Organization owner cannot view private children',
+      };
     }
 
     if (actor.roles.includes(UserRole.TEACHER)) {
@@ -38,7 +52,11 @@ export class ChildAccessPolicy implements Policy<Child> {
         if (resource.organization.ownerId === actor.userId) {
           return { allowed: true };
         }
-        return { allowed: false, reason: 'Teacher can only view children in their class or organization' };
+        return {
+          allowed: false,
+          reason:
+            'Teacher can only view children in their class or organization',
+        };
       }
       return { allowed: false, reason: 'Teacher cannot view private children' };
     }
@@ -46,12 +64,15 @@ export class ChildAccessPolicy implements Policy<Child> {
     return { allowed: false, reason: 'Insufficient permissions' };
   }
 
-  canCreate(actor: Actor, resource?: Partial<Child>): PolicyResult {
+  canCreate(actor: Actor): PolicyResult {
     if (actor.roles.includes(UserRole.ADMIN)) {
       return { allowed: true };
     }
 
-    if (actor.roles.includes(UserRole.ORGANIZATIONOWNER) || actor.roles.includes(UserRole.TEACHER)) {
+    if (
+      actor.roles.includes(UserRole.ORGANIZATIONOWNER) ||
+      actor.roles.includes(UserRole.TEACHER)
+    ) {
       return { allowed: true };
     }
 
@@ -70,7 +91,7 @@ export class ChildAccessPolicy implements Policy<Child> {
     return this.canView(actor, resource);
   }
 
-  canListOrganizationChildren(actor: Actor, organizationId: string): PolicyResult {
+  canListOrganizationChildren(actor: Actor): PolicyResult {
     if (actor.roles.includes(UserRole.ADMIN)) {
       return { allowed: true };
     }
@@ -83,7 +104,10 @@ export class ChildAccessPolicy implements Policy<Child> {
       return { allowed: true };
     }
 
-    return { allowed: false, reason: 'Only organization members can list organization children' };
+    return {
+      allowed: false,
+      reason: 'Only organization members can list organization children',
+    };
   }
 
   canListPrivateChildren(actor: Actor, parentUserId: string): PolicyResult {
@@ -91,11 +115,17 @@ export class ChildAccessPolicy implements Policy<Child> {
       return { allowed: true };
     }
 
-    if (actor.roles.includes(UserRole.PARENT) && actor.userId === parentUserId) {
+    if (
+      actor.roles.includes(UserRole.PARENT) &&
+      actor.userId === parentUserId
+    ) {
       return { allowed: true };
     }
 
-    return { allowed: false, reason: 'Parent can only list their own private children' };
+    return {
+      allowed: false,
+      reason: 'Parent can only list their own private children',
+    };
   }
 
   private isParentOfChild(actor: Actor, resource: Child): boolean {
@@ -107,6 +137,8 @@ export class ChildAccessPolicy implements Policy<Child> {
   }
 
   private isPrivateChild(resource: Child): resource is PrivateChild {
-    return 'organizationId' in resource && resource.organizationId === undefined;
+    return (
+      'organizationId' in resource && resource.organizationId === undefined
+    );
   }
 }
