@@ -71,7 +71,7 @@ export const VerifyEmailTemplate = ({
                 الموقع الرسمي
               </Link>{' '}
               |{' '}
-              <Link href="mailto:hello@ithrathaka.com" style={linkStyle}>
+              <Link href="mailto:support@ithrathaka.com" style={linkStyle}>
                 الدعم الفني
               </Link>
             </Text>

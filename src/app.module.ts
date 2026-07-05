@@ -1,29 +1,29 @@
-import { ClassSerializerInterceptor, Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { ChildrenModule } from './children/children.module';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { UsersModule } from './users/users.module';
-import { OrganizationsModule } from './organizations/organizations.module';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { SessionModule } from './session/session.module';
-import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ClassSerializerInterceptor, Module } from '@nestjs/common'
+import { AppController } from './app.controller'
+import { AppService } from './app.service'
+import { ChildrenModule } from './children/children.module'
+import { TypeOrmModule } from '@nestjs/typeorm'
+import { UsersModule } from './users/users.module'
+import { OrganizationsModule } from './organizations/organizations.module'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+import { SessionModule } from './session/session.module'
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core'
 
-import { JwtAuthGuard } from './users/guards/auth.guard';
-import { RolesGuard } from './users/guards/roles.guard';
-import { ClassesModule } from './classes/classes.module';
-import { GradesModule } from './grades/grades.module';
-import { BullModule } from '@nestjs/bull';
-import { NotificationsModule } from './notifications/notifications.module';
-import { EventEmitterModule } from '@nestjs/event-emitter';
-import { EvaluationsModule } from 'src/evaluations/evaluations.module';
-import { ScheduleModule } from '@nestjs/schedule';
-import { PaymentsModule } from 'src/payments/payments.module';
-import { DealsModule } from 'src/deals/deals.module';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { CommonModule } from './common/common.module';
-import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
-import { CapacityModule } from './capacity/capacity.module';
+import { JwtAuthGuard } from './users/guards/auth.guard'
+import { RolesGuard } from './users/guards/roles.guard'
+import { ClassesModule } from './classes/classes.module'
+import { GradesModule } from './grades/grades.module'
+import { BullModule } from '@nestjs/bull'
+import { NotificationsModule } from './notifications/notifications.module'
+import { EventEmitterModule } from '@nestjs/event-emitter'
+import { EvaluationsModule } from 'src/evaluations/evaluations.module'
+import { ScheduleModule } from '@nestjs/schedule'
+import { PaymentsModule } from 'src/payments/payments.module'
+import { DealsModule } from 'src/deals/deals.module'
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
+import { CommonModule } from './common/common.module'
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor'
+import { CapacityModule } from './capacity/capacity.module'
 
 @Module({
   imports: [
