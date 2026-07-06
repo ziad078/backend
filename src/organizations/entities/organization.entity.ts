@@ -1,9 +1,9 @@
-import { Class } from 'src/classes/entities/class.entity';
-import { ApprovalStatus } from 'src/common/enums/approval-status.enum';
-import { OrganizationType } from 'src/common/enums/organization-type.enum';
-import { Grade } from 'src/grades/entities/grade.entity';
-import { Teacher } from 'src/users/entities/teacher.entity';
-import { User } from 'src/users/entities/user.entity';
+import { Class } from 'src/classes/entities/class.entity'
+import { ApprovalStatus } from 'src/common/enums/approval-status.enum'
+import { OrganizationType } from 'src/common/enums/organization-type.enum'
+import { Grade } from 'src/grades/entities/grade.entity'
+import { Teacher } from 'src/users/entities/teacher.entity'
+import { User } from 'src/users/entities/user.entity'
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -12,54 +12,54 @@ import {
   OneToOne,
   JoinColumn,
   ManyToOne,
-} from 'typeorm';
+} from 'typeorm'
 
 @Entity('organizations')
 export class Organization {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column()
-  organizationName: string;
+  organizationName: string
 
   @Column({
     type: 'enum',
     enum: OrganizationType,
   })
-  organizationType: OrganizationType;
+  organizationType: OrganizationType
 
   @Column({
     type: 'enum',
     enum: ApprovalStatus,
     default: ApprovalStatus.PENDING,
   })
-  approvalStatus: ApprovalStatus;
+  approvalStatus: ApprovalStatus
 
   @Column({ unique: true })
-  ownerId: string;
+  ownerId: string
 
   @Column({ type: 'uuid', nullable: true })
-  approvedById: string | null;
+  approvedById: string | null
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'approvedById' })
-  approvedBy: User | null;
+  approvedBy: User | null
 
   @Column({ type: 'timestamptz', nullable: true })
-  approvedAt: Date | null;
+  approvedAt: Date | null
 
   @Column({ type: 'uuid', nullable: true })
-  rejectedById: string | null;
+  rejectedById: string | null
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'rejectedById' })
-  rejectedBy: User | null;
+  rejectedBy: User | null
 
   @Column({ type: 'timestamptz', nullable: true })
-  rejectedAt: Date | null;
+  rejectedAt: Date | null
 
   @Column({ type: 'varchar', length: 500, nullable: true })
-  rejectionReason: string | null;
+  rejectionReason: string | null
 
   /**
    * Organization owner
@@ -68,17 +68,17 @@ export class Organization {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'ownerId' })
-  owner: User;
+  owner: User
 
   /**
    * Users inside organization
    */
   @OneToMany(() => Teacher, (teacher) => teacher.organization)
-  teachers: Teacher[];
+  teachers: Teacher[]
 
   @OneToMany(() => Grade, (grade) => grade.organization)
-  grades: Grade[];
+  grades: Grade[]
 
   @OneToMany(() => Class, (cls) => cls.organization)
-  classes: Class[];
+  classes: Class[]
 }

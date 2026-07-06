@@ -6,50 +6,50 @@ import {
   JoinColumn,
   Index,
   Unique,
-} from 'typeorm';
-import { EvaluationAttempt } from './evaluation-attempt.entity';
-import { EvaluationQuestion } from './evaluation-question.entity';
-import { EvaluationQuestionAnswer } from './evaluation-question-answer.entity';
-import { EvaluationDimension } from './evaluation-dimension.entity';
+} from 'typeorm'
+import { EvaluationAttempt } from './evaluation-attempt.entity'
+import { EvaluationQuestion } from './evaluation-question.entity'
+import { EvaluationQuestionAnswer } from './evaluation-question-answer.entity'
+import { EvaluationDimension } from './evaluation-dimension.entity'
 
 @Entity('evaluation_answers')
 @Unique('uq_attempt_question', ['attemptId', 'questionId'])
 export class EvaluationAnswer {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Index()
   @Column({ type: 'uuid' })
-  attemptId: string;
+  attemptId: string
 
   @ManyToOne(() => EvaluationAttempt, (a) => a.answers, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'attemptId' })
-  attempt: EvaluationAttempt;
+  attempt: EvaluationAttempt
 
   @Index()
   @Column({ type: 'uuid' })
-  questionId: string;
+  questionId: string
 
   @ManyToOne(() => EvaluationQuestion, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'questionId' })
-  question: EvaluationQuestion;
+  question: EvaluationQuestion
 
   @Index()
   @Column({ type: 'uuid' })
-  selectedAnswerId: string;
+  selectedAnswerId: string
 
   @ManyToOne(() => EvaluationQuestionAnswer, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'selectedAnswerId' })
-  selectedAnswer: EvaluationQuestionAnswer;
+  selectedAnswer: EvaluationQuestionAnswer
 
   @Index()
   @Column({ type: 'uuid' })
-  evaluationDimensionId: string;
+  evaluationDimensionId: string
 
   @ManyToOne(() => EvaluationDimension, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'evaluationDimensionId' })
-  evaluationDimension: EvaluationDimension;
+  evaluationDimension: EvaluationDimension
 
   @Column('float')
-  scoreValue: number;
+  scoreValue: number
 }

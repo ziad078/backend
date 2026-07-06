@@ -3,6 +3,7 @@ import { ApiErrorCodes } from '../enums/api-error.enum'
 export interface BaseApiResponse {
   success: boolean
   timestamp: string
+  statusCode: number
 }
 
 export interface ApiSuccessResponse<T> extends BaseApiResponse {

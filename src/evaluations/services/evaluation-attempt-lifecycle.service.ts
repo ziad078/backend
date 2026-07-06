@@ -4,24 +4,21 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { EventEmitter2 } from 'eventemitter2';
-import { DataSource, Repository } from 'typeorm';
-import { OrganizationChild } from 'src/children/entities/organization-child.entity';
-import { PrivateChild } from 'src/children/entities/private-child.entity';
-import { UserRole } from 'src/common/enums/role.enum';
-import { StartEvaluationDto } from '../dto/start-evaluation.dto';
-import { Evaluation } from '../entities/evaluation.entity';
-import { EvaluationAttempt } from '../entities/evaluation-attempt.entity';
-import { EvaluationAttemptStatus } from '../enums/evaluation-attempt-status.enum';
-import { EVALUATION_EVENTS } from '../evaluations.events';
-import {
-  EvaluationAccessPolicy,
-  EvaluationActor,
-} from './evaluation-access-policy.service';
-import { EvaluationSlotService } from './evaluation-slot.service';
-import { ParentProfilesService } from 'src/users/services/parent-profiles.service';
+} from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { EventEmitter2 } from 'eventemitter2'
+import { DataSource, Repository } from 'typeorm'
+import { OrganizationChild } from 'src/children/entities/organization-child.entity'
+import { PrivateChild } from 'src/children/entities/private-child.entity'
+import { UserRole } from 'src/common/enums/role.enum'
+import { StartEvaluationDto } from '../dto/start-evaluation.dto'
+import { Evaluation } from '../entities/evaluation.entity'
+import { EvaluationAttempt } from '../entities/evaluation-attempt.entity'
+import { EvaluationAttemptStatus } from '../enums/evaluation-attempt-status.enum'
+import { EVALUATION_EVENTS } from '../evaluations.events'
+import { EvaluationAccessPolicy, EvaluationActor } from './evaluation-access-policy.service'
+import { EvaluationSlotService } from './evaluation-slot.service'
+import { ParentProfilesService } from 'src/users/services/parent-profiles.service'
 @Injectable()
 export class EvaluationAttemptLifecycleService {
   constructor(
@@ -38,116 +35,106 @@ export class EvaluationAttemptLifecycleService {
     private readonly parentProfilesService: ParentProfilesService,
   ) {}
 
-  async startEvaluation(
-    evaluationId: string,
-    dto: StartEvaluationDto,
-    actor: EvaluationActor,
-  ) {
-    this.access.assertHasRole(actor, [UserRole.PARENT]);
+  async startEvaluation(evaluationId: string, dto: StartEvaluationDto, actor: EvaluationActor) {
+    this.access.assertHasRole(actor, [UserRole.PARENT])
 
     const evaluation = await this.evaluations.findOne({
       where: { id: evaluationId },
-    });
+    })
 
     if (!evaluation) {
-      throw new NotFoundException('Evaluation not found');
+      throw new NotFoundException('Evaluation not found')
     }
 
-    const parentProfile = await this.parentProfilesService.findByUserId(
-      actor.userId,
-    );
+    const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
     if (!parentProfile) {
-      throw new ForbiddenException('Parent profile not found for user');
+      throw new ForbiddenException('Parent profile not found for user')
     }
 
-    let child: OrganizationChild | PrivateChild;
-    let isPrivateChild: boolean;
+    let child: OrganizationChild | PrivateChild
+    let isPrivateChild: boolean
 
     // Try to find as private child first
     const privateChild = await this.privateChildren.findOne({
       where: { id: dto.childId, parent: { id: parentProfile.id } },
       relations: { parent: true },
-    });
+    })
 
     if (privateChild) {
-      child = privateChild;
-      isPrivateChild = true;
+      child = privateChild
+      isPrivateChild = true
     } else {
       // Try to find as organization child
       const orgChild = await this.organizationChildren.findOne({
         where: { id: dto.childId },
         relations: { parent: true, class: { organization: true } },
-      });
+      })
 
       if (!orgChild || orgChild.parent.id !== parentProfile.id) {
-        throw new ForbiddenException('Child not found for this parent');
+        throw new ForbiddenException('Child not found for this parent')
       }
 
-      child = orgChild;
-      isPrivateChild = false;
+      child = orgChild
+      isPrivateChild = false
     }
 
     if (
       !isPrivateChild &&
       evaluation.institutionId != null &&
-      evaluation.institutionId !==
-        (child as OrganizationChild).class?.organization?.id
+      evaluation.institutionId !== (child as OrganizationChild).class?.organization?.id
     ) {
-      throw new ForbiddenException(
-        'Evaluation does not belong to child institution',
-      );
+      throw new ForbiddenException('Evaluation does not belong to child institution')
     }
 
-    const age = this.calculateAge(child.birthDate);
+    const age = this.calculateAge(child.birthDate)
     if (
       (evaluation.ageFrom != null && age < evaluation.ageFrom) ||
       (evaluation.ageTo != null && age > evaluation.ageTo)
     ) {
-      throw new ForbiddenException('Evaluation is not suitable for child age');
+      throw new ForbiddenException('Evaluation is not suitable for child age')
     }
 
-    const expiresAt = this.resolveExpiresAt(dto);
+    const expiresAt = this.resolveExpiresAt(dto)
     let limitReachedPayload: {
-      evaluationId: string;
-      parentId: string;
-      childId: string;
-      attempts: number;
-      reason: string;
-    } | null = null;
+      evaluationId: string
+      parentId: string
+      childId: string
+      attempts: number
+      reason: string
+    } | null = null
 
     const attempt = await this.dataSource.transaction(async (manager) => {
-      const repo = manager.getRepository(EvaluationAttempt);
+      const repo = manager.getRepository(EvaluationAttempt)
 
       const whereClause: any = {
         evaluationId,
         parentId: parentProfile.id,
-      };
+      }
 
       if (isPrivateChild) {
-        whereClause.privateChildId = dto.childId;
+        whereClause.privateChildId = dto.childId
       } else {
-        whereClause.organizationChildId = dto.childId;
+        whereClause.organizationChildId = dto.childId
       }
 
       const attempts = await repo.find({
         where: whereClause,
         order: { attemptNumber: 'DESC' },
         lock: { mode: 'pessimistic_write' },
-      });
+      })
 
       const inProgress = attempts.some(
-        (attemptRow) =>
-          attemptRow.status === EvaluationAttemptStatus.IN_PROGRESS,
-      );
+        (attemptRow) => attemptRow.status === EvaluationAttemptStatus.IN_PROGRESS,
+      )
 
       if (inProgress) {
         throw new BadRequestException(
           'Finish or submit the current attempt before starting another',
-        );
+        )
       }
 
-      const count = attempts.length;
-      const last = attempts[0];
+      const count = attempts.length
+      const last = attempts[0]
 
       if (last?.status === EvaluationAttemptStatus.APPROVED) {
         limitReachedPayload = {
@@ -156,26 +143,26 @@ export class EvaluationAttemptLifecycleService {
           childId: dto.childId,
           attempts: count,
           reason: 'already_approved',
-        };
-        throw new BadRequestException('Retake is not allowed after approval');
+        }
+        throw new BadRequestException('Retake is not allowed after approval')
       }
 
-      let entitlementId: string | null = null;
+      let entitlementId: string | null = null
 
       if (isPrivateChild) {
         const entitlement = await this.slots.findEntitlementForNext(
           manager,
           dto.childId,
           parentProfile.id,
-        );
+        )
 
         if (!entitlement) {
           throw new BadRequestException(
             'No evaluation slot is available. Open main slot, retake, request extra, complete payment, or wait for admin approval.',
-          );
+          )
         }
 
-        entitlementId = entitlement.id;
+        entitlementId = entitlement.id
       } else if (count >= 2) {
         limitReachedPayload = {
           evaluationId,
@@ -183,8 +170,8 @@ export class EvaluationAttemptLifecycleService {
           childId: dto.childId,
           attempts: count,
           reason: 'max_attempts',
-        };
-        throw new ConflictException('Maximum attempts reached');
+        }
+        throw new ConflictException('Maximum attempts reached')
       }
 
       const createData: any = {
@@ -196,78 +183,67 @@ export class EvaluationAttemptLifecycleService {
         score: null,
         result: null,
         submittedAt: null,
-      };
+      }
 
       if (isPrivateChild) {
-        createData.privateChildId = dto.childId;
+        createData.privateChildId = dto.childId
       } else {
-        createData.organizationChildId = dto.childId;
+        createData.organizationChildId = dto.childId
       }
 
-      const saved = (await repo.save(
-        repo.create(createData),
-      )) as unknown as EvaluationAttempt;
+      const saved = (await repo.save(repo.create(createData))) as unknown as EvaluationAttempt
 
       if (isPrivateChild && entitlementId) {
-        await this.slots.linkEvaluationToEntitlement(
-          manager,
-          entitlementId,
-          saved.id,
-        );
+        await this.slots.linkEvaluationToEntitlement(manager, entitlementId, saved.id)
       }
 
-      return saved;
-    });
+      return saved
+    })
 
     if (limitReachedPayload) {
-      this.events.emit(EVALUATION_EVENTS.limitReached, limitReachedPayload);
+      this.events.emit(EVALUATION_EVENTS.limitReached, limitReachedPayload)
     }
 
-    return attempt;
+    return attempt
   }
 
   private resolveExpiresAt(dto: StartEvaluationDto): Date | null {
     if (dto.expiresAt && dto.expiresInSeconds) {
-      throw new BadRequestException(
-        'Provide either expiresAt or expiresInSeconds',
-      );
+      throw new BadRequestException('Provide either expiresAt or expiresInSeconds')
     }
 
     if (dto.expiresAt) {
-      const d = new Date(dto.expiresAt);
+      const d = new Date(dto.expiresAt)
 
       if (Number.isNaN(d.getTime())) {
-        throw new BadRequestException('Invalid expiresAt');
+        throw new BadRequestException('Invalid expiresAt')
       }
 
       if (d.getTime() <= Date.now()) {
-        throw new BadRequestException('expiresAt must be in the future');
+        throw new BadRequestException('expiresAt must be in the future')
       }
 
-      return d;
+      return d
     }
 
     if (dto.expiresInSeconds) {
-      return new Date(Date.now() + dto.expiresInSeconds * 1000);
+      return new Date(Date.now() + dto.expiresInSeconds * 1000)
     }
 
-    return null;
+    return null
   }
 
   private calculateAge(birthDate: Date | string) {
-    const birth = new Date(birthDate);
-    const today = new Date();
+    const birth = new Date(birthDate)
+    const today = new Date()
 
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
 
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birth.getDate())
-    ) {
-      age--;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
     }
 
-    return age;
+    return age
   }
 }

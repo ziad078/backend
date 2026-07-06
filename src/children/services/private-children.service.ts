@@ -1,11 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { PrivateChild } from '../entities/private-child.entity';
-import { ChildAccessPolicy } from '../policies/child-access.policy';
-import { AuditLoggingService } from 'src/common/services/audit-logging.service';
-import { AuditAction } from 'src/common/enums/audit-action.enum';
-import { Actor } from 'src/common/policies/base-policy.interface';
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { PrivateChild } from '../entities/private-child.entity'
+import { ChildAccessPolicy } from '../policies/child-access.policy'
+import { AuditLoggingService } from 'src/common/services/audit-logging.service'
+import { AuditAction } from 'src/common/enums/audit-action.enum'
+import { Actor } from 'src/common/policies/base-policy.interface'
 
 @Injectable()
 export class PrivateChildrenService {
@@ -17,13 +17,13 @@ export class PrivateChildrenService {
   ) {}
 
   async create(dto: any, actor: Actor): Promise<PrivateChild> {
-    const policyResult = this.childAccessPolicy.canCreate(actor);
+    const policyResult = this.childAccessPolicy.canCreate(actor)
     if (!policyResult.allowed) {
-      throw new Error(policyResult.reason);
+      throw new Error(policyResult.reason)
     }
 
-    const child = this.privateChildRepo.create(dto);
-    const saved = await this.privateChildRepo.save(child) as unknown as PrivateChild;
+    const child = this.privateChildRepo.create(dto)
+    const saved = (await this.privateChildRepo.save(child)) as unknown as PrivateChild
 
     await this.auditService.logCreate(
       actor.userId,
@@ -33,35 +33,35 @@ export class PrivateChildrenService {
       saved.id,
       dto,
       'Created private child',
-    );
+    )
 
-    return saved;
+    return saved
   }
 
   async findById(id: string, actor: Actor): Promise<PrivateChild> {
     const child = await this.privateChildRepo.findOne({
       where: { id },
       relations: ['parent'],
-    });
+    })
 
     if (!child) {
-      throw new Error('Private child not found');
+      throw new Error('Private child not found')
     }
 
-    const policyResult = this.childAccessPolicy.canView(actor, child);
+    const policyResult = this.childAccessPolicy.canView(actor, child)
     if (!policyResult.allowed) {
-      throw new Error(policyResult.reason);
+      throw new Error(policyResult.reason)
     }
 
-    return child;
+    return child
   }
 
   async update(id: string, dto: any, actor: Actor): Promise<PrivateChild> {
-    const child = await this.findById(id, actor);
-    const oldValue = { ...child };
+    const child = await this.findById(id, actor)
+    const oldValue = { ...child }
 
-    Object.assign(child, dto);
-    const updated = await this.privateChildRepo.save(child);
+    Object.assign(child, dto)
+    const updated = await this.privateChildRepo.save(child)
 
     await this.auditService.logUpdate(
       actor.userId,
@@ -72,16 +72,16 @@ export class PrivateChildrenService {
       oldValue,
       dto,
       'Updated private child',
-    );
+    )
 
-    return updated;
+    return updated
   }
 
   async delete(id: string, actor: Actor): Promise<void> {
-    const child = await this.findById(id, actor);
-    const oldValue = { ...child };
+    const child = await this.findById(id, actor)
+    const oldValue = { ...child }
 
-    await this.privateChildRepo.remove(child);
+    await this.privateChildRepo.remove(child)
 
     await this.auditService.logDelete(
       actor.userId,
@@ -91,18 +91,18 @@ export class PrivateChildrenService {
       id,
       oldValue,
       'Deleted private child',
-    );
+    )
   }
 
   async findByParent(parentUserId: string, actor: Actor): Promise<PrivateChild[]> {
-    const policyResult = this.childAccessPolicy.canListPrivateChildren(actor, parentUserId);
+    const policyResult = this.childAccessPolicy.canListPrivateChildren(actor, parentUserId)
     if (!policyResult.allowed) {
-      throw new Error(policyResult.reason);
+      throw new Error(policyResult.reason)
     }
 
     return this.privateChildRepo.find({
       where: { parent: { userId: parentUserId } },
       relations: ['parent'],
-    });
+    })
   }
 }

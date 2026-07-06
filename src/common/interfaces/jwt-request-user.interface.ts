@@ -1,8 +1,8 @@
-import { UserRole } from 'src/common/enums/role.enum';
+import { UserRole } from 'src/common/enums/role.enum'
 
 export type JwtRequestUser = {
-  userId: string;
-  email: string;
-  phone: string;
-  roles: { name: UserRole }[];
-};
+  userId: string
+  email: string
+  phone: string
+  roles: { name: UserRole }[]
+}

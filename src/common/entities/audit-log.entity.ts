@@ -1,11 +1,5 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-  Index,
-} from 'typeorm';
-import { AuditAction } from '../enums/audit-action.enum';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm'
+import { AuditAction } from '../enums/audit-action.enum'
 
 @Entity('audit_logs')
 @Index('idx_audit_logs_user', ['userId'])
@@ -14,42 +8,42 @@ import { AuditAction } from '../enums/audit-action.enum';
 @Index('idx_audit_logs_date', ['createdAt'])
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Index()
   @Column({ type: 'uuid' })
-  userId: string;
+  userId: string
 
   @Column({ type: 'varchar', length: 255 })
-  userEmail: string;
+  userEmail: string
 
   @Column({ type: 'varchar', length: 50 })
-  userRole: string;
+  userRole: string
 
   @Column({ type: 'enum', enum: AuditAction })
-  action: AuditAction;
+  action: AuditAction
 
   @Column({ type: 'varchar', length: 100 })
-  entityType: string;
+  entityType: string
 
   @Column({ type: 'uuid' })
-  entityId: string;
+  entityId: string
 
   @Column({ type: 'jsonb', nullable: true })
-  oldValue: Record<string, unknown> | null;
+  oldValue: Record<string, unknown> | null
 
   @Column({ type: 'jsonb', nullable: true })
-  newValue: Record<string, unknown> | null;
+  newValue: Record<string, unknown> | null
 
   @Column({ type: 'text', nullable: true })
-  description: string | null;
+  description: string | null
 
   @Column({ type: 'varchar', length: 50, nullable: true })
-  ipAddress: string | null;
+  ipAddress: string | null
 
   @Column({ type: 'varchar', length: 500, nullable: true })
-  userAgent: string | null;
+  userAgent: string | null
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date
 }

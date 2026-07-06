@@ -1,21 +1,21 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator'
 
 export class CreateSessionDto {
   @IsString()
   @IsNotEmpty()
-  userId: string;
+  userId: string
 
   @IsString()
   @IsNotEmpty()
-  refreshToken: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @IsOptional()
-  device?: string;
+  refreshToken: string
 
   @IsString()
   @IsNotEmpty()
   @IsOptional()
-  ip?: string;
+  device?: string
+
+  @IsString()
+  @IsNotEmpty()
+  @IsOptional()
+  ip?: string
 }

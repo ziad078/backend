@@ -1,17 +1,10 @@
-import {
-  Body,
-  Controller,
-  Param,
-  ParseUUIDPipe,
-  Patch,
-  Req,
-} from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { UserRole } from 'src/common/enums/role.enum';
-import type { AuthRequest } from 'src/common/interfaces/auth-request.interface';
-import { Roles } from 'src/users/decorators/role.decorator';
-import { DealsService } from './deals.service';
-import { UpdateProposalDto } from './dto/update-proposal.dto';
+import { Body, Controller, Param, ParseUUIDPipe, Patch, Req } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { UserRole } from 'src/common/enums/role.enum'
+import type { AuthRequest } from 'src/common/interfaces/auth-request.interface'
+import { Roles } from 'src/users/decorators/role.decorator'
+import { DealsService } from './deals.service'
+import { UpdateProposalDto } from './dto/update-proposal.dto'
 
 @ApiTags('proposals')
 @ApiBearerAuth()
@@ -27,6 +20,6 @@ export class ProposalsController {
     @Body() dto: UpdateProposalDto,
     @Req() req: AuthRequest,
   ) {
-    return this.dealsService.updateProposal(id, dto, req.user);
+    return this.dealsService.updateProposal(id, dto, req.user)
   }
 }

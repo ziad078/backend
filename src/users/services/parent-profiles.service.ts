@@ -1,21 +1,16 @@
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
-import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
-import { ParentProfile } from '../entities/parent-profile.entity';
-import { ParentOrganization } from '../entities/parent-organization.entity';
-import { User } from '../entities/user.entity';
-import { Organization } from 'src/organizations/entities/organization.entity';
-import { UserRole } from 'src/common/enums/role.enum';
-import { ParentOrganizationStatus } from '../enums/parent-organization-status.enum';
-import { ParentOrganizationSource } from '../enums/parent-organization-source.enum';
-import { UsersService } from './users.service';
-import { randomUUID } from 'crypto';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { OnEvent } from '@nestjs/event-emitter'
+import { InjectRepository } from '@nestjs/typeorm'
+import { EntityManager, Repository } from 'typeorm'
+import { ParentProfile } from '../entities/parent-profile.entity'
+import { ParentOrganization } from '../entities/parent-organization.entity'
+import { User } from '../entities/user.entity'
+import { Organization } from 'src/organizations/entities/organization.entity'
+import { UserRole } from 'src/common/enums/role.enum'
+import { ParentOrganizationStatus } from '../enums/parent-organization-status.enum'
+import { ParentOrganizationSource } from '../enums/parent-organization-source.enum'
+import { UsersService } from './users.service'
+import { randomUUID } from 'crypto'
 
 @Injectable()
 export class ParentProfilesService {
@@ -39,36 +34,32 @@ export class ParentProfilesService {
     userId: string,
     manager?: EntityManager,
   ): Promise<ParentProfile> {
-    const repo = manager
-      ? manager.getRepository(ParentProfile)
-      : this.parentProfileRepository;
+    const repo = manager ? manager.getRepository(ParentProfile) : this.parentProfileRepository
 
     // Check if profile already exists
     let profile = await repo.findOne({
       where: { userId },
       relations: ['user'],
-    });
+    })
 
     if (profile) {
-      return profile;
+      return profile
     }
 
     // Load user to verify it has/should have PARENT role
-    const userRepo = manager
-      ? manager.getRepository(User)
-      : this.userRepository;
+    const userRepo = manager ? manager.getRepository(User) : this.userRepository
 
     const user = await userRepo.findOne({
       where: { id: userId },
       relations: ['roles'],
-    });
+    })
 
     if (!user) {
-      throw new NotFoundException(`User ${userId} not found`);
+      throw new NotFoundException(`User ${userId} not found`)
     }
 
     // Ensure user has PARENT role
-    const hasParentRole = user.roles?.some((r) => r.name === UserRole.PARENT);
+    const hasParentRole = user.roles?.some((r) => r.name === UserRole.PARENT)
     if (!hasParentRole) {
       // Create role if not present (business logic supports this during child creation)
       if (manager) {
@@ -76,17 +67,17 @@ export class ParentProfilesService {
           userId,
           [UserRole.PARENT],
           manager,
-        );
-        user.roles = updatedUser.roles;
+        )
+        user.roles = updatedUser.roles
       }
     }
 
     // Create new profile
-    profile = new ParentProfile();
-    profile.userId = userId;
-    profile.user = user;
+    profile = new ParentProfile()
+    profile.userId = userId
+    profile.user = user
 
-    return await repo.save(profile);
+    return await repo.save(profile)
   }
 
   /**
@@ -95,17 +86,12 @@ export class ParentProfilesService {
   async findByUserId(userId: string): Promise<ParentProfile> {
     const parentProfile = await this.parentProfileRepository.findOne({
       where: { userId },
-      relations: [
-        'user',
-        'organizationLinks',
-        'organizationChildren',
-        'privateChildren',
-      ],
-    });
+      relations: ['user', 'organizationLinks', 'organizationChildren', 'privateChildren'],
+    })
     if (!parentProfile) {
-      throw new NotFoundException(`parent with id ${userId} isn't found`);
+      throw new NotFoundException(`parent with id ${userId} isn't found`)
     }
-    return parentProfile;
+    return parentProfile
   }
 
   /**
@@ -114,13 +100,8 @@ export class ParentProfilesService {
   async findById(parentProfileId: string): Promise<ParentProfile | null> {
     return this.parentProfileRepository.findOne({
       where: { id: parentProfileId },
-      relations: [
-        'user',
-        'organizationLinks',
-        'organizationChildren',
-        'privateChildren',
-      ],
-    });
+      relations: ['user', 'organizationLinks', 'organizationChildren', 'privateChildren'],
+    })
   }
 
   /**
@@ -130,15 +111,13 @@ export class ParentProfilesService {
     const profile = await this.parentProfileRepository.findOne({
       where: { id: parentProfileId },
       select: ['userId'],
-    });
+    })
 
     if (!profile) {
-      throw new NotFoundException(
-        `Parent profile ${parentProfileId} not found`,
-      );
+      throw new NotFoundException(`Parent profile ${parentProfileId} not found`)
     }
 
-    return profile.userId;
+    return profile.userId
   }
 
   /**
@@ -152,9 +131,7 @@ export class ParentProfilesService {
     source: ParentOrganizationSource,
     manager?: EntityManager,
   ): Promise<ParentOrganization> {
-    const repo = manager
-      ? manager.getRepository(ParentOrganization)
-      : this.parentOrgRepository;
+    const repo = manager ? manager.getRepository(ParentOrganization) : this.parentOrgRepository
 
     // Check if link already exists
     let link = await repo.findOne({
@@ -162,50 +139,46 @@ export class ParentProfilesService {
         parentId: parentProfileId,
         organizationId,
       },
-    });
+    })
 
     if (link) {
       // Link already exists, don't modify it
       // If it's blocked, keep it blocked (don't silently reactivate)
-      return link;
+      return link
     }
 
     // Create new link
-    link = new ParentOrganization();
-    link.parentId = parentProfileId;
-    link.organizationId = organizationId;
-    link.status = ParentOrganizationStatus.ACTIVE;
-    link.source = source;
+    link = new ParentOrganization()
+    link.parentId = parentProfileId
+    link.organizationId = organizationId
+    link.status = ParentOrganizationStatus.ACTIVE
+    link.source = source
 
-    return await repo.save(link);
+    return await repo.save(link)
   }
 
   /**
    * Get all organizations for a parent profile.
    */
-  async getOrganizationsForParent(
-    parentProfileId: string,
-  ): Promise<Organization[]> {
+  async getOrganizationsForParent(parentProfileId: string): Promise<Organization[]> {
     const links = await this.parentOrgRepository.find({
       where: { parentId: parentProfileId },
       relations: ['organization'],
-    });
+    })
 
-    return links.map((link) => link.organization);
+    return links.map((link) => link.organization)
   }
 
   /**
    * Get all parent profiles linked to an organization.
    */
-  async getParentsByOrganization(
-    organizationId: string,
-  ): Promise<ParentProfile[]> {
+  async getParentsByOrganization(organizationId: string): Promise<ParentProfile[]> {
     const links = await this.parentOrgRepository.find({
       where: { organizationId },
       relations: ['parent', 'parent.user'],
-    });
+    })
 
-    return links.map((link) => link.parent);
+    return links.map((link) => link.parent)
   }
 
   /**
@@ -217,68 +190,49 @@ export class ParentProfilesService {
     parentData: { name?: string; email?: string; phone: string },
     manager?: EntityManager,
   ): Promise<ParentProfile> {
-    const userRepo = manager
-      ? manager.getRepository(User)
-      : this.userRepository;
+    const userRepo = manager ? manager.getRepository(User) : this.userRepository
 
-    const parentEmail = parentData.email?.toLowerCase().trim();
+    const parentEmail = parentData.email?.toLowerCase().trim()
 
     // Find existing parent by phone or email
     const parentMatches = await userRepo.find({
-      where: [
-        { phone: parentData.phone },
-        ...(parentEmail ? [{ email: parentEmail }] : []),
-      ],
+      where: [{ phone: parentData.phone }, ...(parentEmail ? [{ email: parentEmail }] : [])],
       relations: ['roles'],
-    });
+    })
 
     // Remove duplicates by ID
-    const uniqueParents = Array.from(
-      new Map(parentMatches.map((p) => [p.id, p])).values(),
-    );
+    const uniqueParents = Array.from(new Map(parentMatches.map((p) => [p.id, p])).values())
 
     if (uniqueParents.length > 1) {
-      throw new ConflictException(
-        'The provided phone and email belong to different accounts',
-      );
+      throw new ConflictException('The provided phone and email belong to different accounts')
     }
 
-    let parent = uniqueParents[0];
+    let parent = uniqueParents[0]
 
     if (parent) {
       // Ensure parent has PARENT role
       if (!parent.roles?.some((r) => r.name === UserRole.PARENT)) {
-        parent = await this.usersService.addRolesToUser(
-          parent.id,
-          [UserRole.PARENT],
-          manager,
-        );
+        parent = await this.usersService.addRolesToUser(parent.id, [UserRole.PARENT], manager)
       }
 
       // Update parent info if provided
-      const parentPatch: Partial<User> = {};
-      if (parentData.name) parentPatch.name = parentData.name;
-      if (parentEmail) parentPatch.email = parentEmail;
-      parentPatch.phone = parentData.phone;
+      const parentPatch: Partial<User> = {}
+      if (parentData.name) parentPatch.name = parentData.name
+      if (parentEmail) parentPatch.email = parentEmail
+      parentPatch.phone = parentData.phone
 
       if (Object.keys(parentPatch).length > 0) {
-        parent = await this.usersService.updateUser(
-          parent.id,
-          parentPatch,
-          manager,
-        );
+        parent = await this.usersService.updateUser(parent.id, parentPatch, manager)
       }
     } else {
       // Create new parent user
       if (!parentData.name) {
-        throw new ConflictException(
-          'Parent name is required when creating a new parent account',
-        );
+        throw new ConflictException('Parent name is required when creating a new parent account')
       }
 
-      const userManager = manager ?? this.userRepository.manager;
-      const parentPassword = this.createTemporaryPassword();
-      console.log(parentPassword);
+      const userManager = manager ?? this.userRepository.manager
+      const parentPassword = this.createTemporaryPassword()
+      console.log(parentPassword)
       parent = await this.usersService.create(
         {
           name: parentData.name,
@@ -288,42 +242,38 @@ export class ParentProfilesService {
         },
         [UserRole.PARENT],
         userManager,
-      );
+      )
     }
 
     // Ensure ParentProfile exists
-    return this.ensureParentProfileForUser(parent.id, manager);
+    return this.ensureParentProfileForUser(parent.id, manager)
   }
 
   private createTemporaryPassword(): string {
-    return `Temp-${randomUUID()}aA1!`;
+    return `Temp-${randomUUID()}aA1!`
   }
 
   private createPlaceholderEmail(phone: string): string {
-    const normalizedPhone = phone.replace(/\D/g, '');
-    return `parent-${normalizedPhone}-${randomUUID()}@placeholder.ithraa.local`;
+    const normalizedPhone = phone.replace(/\D/g, '')
+    return `parent-${normalizedPhone}-${randomUUID()}@placeholder.ithraa.local`
   }
 
   @OnEvent('payment.success')
-  async handlePaymentSuccess(payload: {
-    userId: string;
-    metadata: Record<string, unknown>;
-  }) {
-    const capacityIncrease = payload.metadata?.capacityIncrease;
-    if (!capacityIncrease) return;
+  async handlePaymentSuccess(payload: { userId: string; metadata: Record<string, unknown> }) {
+    const capacityIncrease = payload.metadata?.capacityIncrease
+    if (!capacityIncrease) return
 
     const profile = await this.parentProfileRepository.findOne({
       where: { userId: payload.userId },
-    });
-    if (!profile) return;
+    })
+    if (!profile) return
 
-    const increment =
-      typeof capacityIncrease === 'number' ? capacityIncrease : 1;
-    profile.maxChildren += increment;
-    await this.parentProfileRepository.save(profile);
+    const increment = typeof capacityIncrease === 'number' ? capacityIncrease : 1
+    profile.maxChildren += increment
+    await this.parentProfileRepository.save(profile)
     Logger.log(
       `Increased maxChildren for user ${payload.userId} to ${profile.maxChildren}`,
       'ParentProfilesService',
-    );
+    )
   }
 }

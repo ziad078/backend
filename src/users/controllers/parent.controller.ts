@@ -1,13 +1,8 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ParentsServices } from '../services/parents.service';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-} from '@nestjs/swagger';
-import { UserRole } from 'src/common/enums/role.enum';
-import { Roles } from '../decorators/role.decorator';
+import { Controller, Get, Query } from '@nestjs/common'
+import { ParentsServices } from '../services/parents.service'
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger'
+import { UserRole } from 'src/common/enums/role.enum'
+import { Roles } from '../decorators/role.decorator'
 
 @ApiTags('parents')
 @ApiBearerAuth()
@@ -20,6 +15,6 @@ export class ParentsController {
   @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
   @Get('search')
   findParentByPhone(@Query('phone') phone: string) {
-    return this.parentsServices.findParentByPhone(phone);
+    return this.parentsServices.findParentByPhone(phone)
   }
 }

@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsPhoneNumber, IsString, Length, Matches } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger'
+import { Transform } from 'class-transformer'
+import { IsPhoneNumber, IsString, Length, Matches } from 'class-validator'
 
 export class LoginDto {
   @ApiProperty({
@@ -8,7 +8,7 @@ export class LoginDto {
   })
   @Transform(({ value }: { value: string }) => value.replace(/[\s\-()]/g, ''))
   @IsPhoneNumber()
-  phone: string;
+  phone: string
 
   @ApiProperty({
     example: '550e8AEd@400-e29b-41d4-a716-446655440000',
@@ -18,8 +18,7 @@ export class LoginDto {
     message: 'Password must be at least 8 characters',
   })
   @Matches(/^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&])/, {
-    message:
-      'Password must contain uppercase, lowercase, number and special character',
+    message: 'Password must contain uppercase, lowercase, number and special character',
   })
-  password: string;
+  password: string
 }

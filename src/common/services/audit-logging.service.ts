@@ -1,21 +1,21 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { AuditLog } from '../entities/audit-log.entity';
-import { AuditAction } from '../enums/audit-action.enum';
-import { Request } from 'express';
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { AuditLog } from '../entities/audit-log.entity'
+import { AuditAction } from '../enums/audit-action.enum'
+import { Request } from 'express'
 
 export interface AuditLogOptions {
-  userId: string;
-  userEmail: string;
-  userRole: string;
-  action: AuditAction;
-  entityType: string;
-  entityId: string;
-  oldValue?: Record<string, unknown> | null;
-  newValue?: Record<string, unknown> | null;
-  description?: string | null;
-  request?: Request;
+  userId: string
+  userEmail: string
+  userRole: string
+  action: AuditAction
+  entityType: string
+  entityId: string
+  oldValue?: Record<string, unknown> | null
+  newValue?: Record<string, unknown> | null
+  description?: string | null
+  request?: Request
 }
 
 @Injectable()
@@ -38,9 +38,9 @@ export class AuditLoggingService {
       description: options.description || null,
       ipAddress: this.extractIpAddress(options.request),
       userAgent: this.extractUserAgent(options.request),
-    });
+    })
 
-    await this.auditLogRepository.save(auditLog);
+    await this.auditLogRepository.save(auditLog)
   }
 
   async logCreate(
@@ -63,7 +63,7 @@ export class AuditLoggingService {
       newValue,
       description,
       request,
-    });
+    })
   }
 
   async logUpdate(
@@ -88,7 +88,7 @@ export class AuditLoggingService {
       newValue,
       description,
       request,
-    });
+    })
   }
 
   async logDelete(
@@ -111,7 +111,7 @@ export class AuditLoggingService {
       oldValue,
       description,
       request,
-    });
+    })
   }
 
   async logApprove(
@@ -132,7 +132,7 @@ export class AuditLoggingService {
       entityId,
       description,
       request,
-    });
+    })
   }
 
   async logReject(
@@ -153,38 +153,35 @@ export class AuditLoggingService {
       entityId,
       description,
       request,
-    });
+    })
   }
 
-  async getAuditLogsForEntity(
-    entityType: string,
-    entityId: string,
-  ): Promise<AuditLog[]> {
+  async getAuditLogsForEntity(entityType: string, entityId: string): Promise<AuditLog[]> {
     return this.auditLogRepository.find({
       where: { entityType, entityId },
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   async getAuditLogsForUser(userId: string): Promise<AuditLog[]> {
     return this.auditLogRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   private extractIpAddress(request?: Request): string | null {
-    if (!request) return null;
+    if (!request) return null
     return (
       (request.headers['x-forwarded-for'] as string)?.split(',')[0].trim() ||
       (request.headers['x-real-ip'] as string) ||
       request.socket.remoteAddress ||
       null
-    );
+    )
   }
 
   private extractUserAgent(request?: Request): string | null {
-    if (!request) return null;
-    return (request.headers['user-agent'] as string) || null;
+    if (!request) return null
+    return (request.headers['user-agent'] as string) || null
   }
 }

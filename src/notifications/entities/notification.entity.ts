@@ -1,4 +1,4 @@
-import { User } from 'src/users/entities/user.entity';
+import { User } from 'src/users/entities/user.entity'
 import {
   Column,
   CreateDateColumn,
@@ -7,39 +7,39 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-} from 'typeorm';
+} from 'typeorm'
 
 @Entity('notifications')
 @Index(['user', 'createdAt'])
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @ManyToOne(() => User, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user: User
 
   @Index()
   @Column({ type: 'uuid' })
-  userId: string;
+  userId: string
 
   @Column({ type: 'varchar', length: 500 })
-  title: string;
+  title: string
 
   @Column({ type: 'text' })
-  message: string;
+  message: string
 
   @Column({ type: 'boolean', default: false })
-  isRead: boolean;
+  isRead: boolean
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date
 
   @Column({ type: 'varchar', length: 50, default: 'general' })
-  type: string;
+  type: string
 
   @Column({ type: 'jsonb', nullable: true })
-  metadata: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null
 }

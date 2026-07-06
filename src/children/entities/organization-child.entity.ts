@@ -9,77 +9,77 @@ import {
   UpdateDateColumn,
   JoinColumn,
   Index,
-} from 'typeorm';
-import { Gender } from 'src/common/enums/gender.enum';
-import { User } from 'src/users/entities/user.entity';
-import { ParentProfile } from 'src/users/entities/parent-profile.entity';
-import { ChildProfile } from './child-profile.entity';
-import { Class } from 'src/classes/entities/class.entity';
-import { Organization } from 'src/organizations/entities/organization.entity';
-import { EvaluationSlot } from 'src/evaluations/entities/evaluation-slot.entity';
+} from 'typeorm'
+import { Gender } from 'src/common/enums/gender.enum'
+import { User } from 'src/users/entities/user.entity'
+import { ParentProfile } from 'src/users/entities/parent-profile.entity'
+import { ChildProfile } from './child-profile.entity'
+import { Class } from 'src/classes/entities/class.entity'
+import { Organization } from 'src/organizations/entities/organization.entity'
+import { EvaluationSlot } from 'src/evaluations/entities/evaluation-slot.entity'
 @Index('idx_parent_org', ['organizationId', 'parentId'])
 @Entity('organization_children')
 export class OrganizationChild {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column()
-  name: string;
+  name: string
 
   @Column({ type: 'date' })
-  birthDate: Date;
+  birthDate: Date
 
   @Column({ type: 'enum', enum: Gender })
-  gender: Gender;
+  gender: Gender
 
   @Index()
   @Column({ type: 'uuid', nullable: false })
-  classId: string;
+  classId: string
 
   @ManyToOne(() => Class, (cls) => cls.children, {
     nullable: false,
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'classId' })
-  class: Class;
+  class: Class
 
   @Index()
   @Column({ type: 'uuid', nullable: false })
-  organizationId: string;
+  organizationId: string
 
   @ManyToOne(() => Organization, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'organizationId' })
-  organization: Organization;
+  organization: Organization
 
   @Index()
   @Column({ type: 'uuid' })
-  createdById: string;
+  createdById: string
 
   @ManyToOne(() => User, (user) => user.organizationChildren, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'createdById' })
-  createdBy: User;
+  createdBy: User
 
   @Index()
   @Column({ type: 'uuid' })
-  parentId: string;
+  parentId: string
 
   @ManyToOne(() => ParentProfile, (profile) => profile.organizationChildren, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'parentId' })
-  parent: ParentProfile;
+  parent: ParentProfile
 
   @OneToOne(() => ChildProfile, (profile) => profile.organizationChild)
-  profile: ChildProfile;
+  profile: ChildProfile
 
   @OneToMany(() => EvaluationSlot, (a) => a.organizationChild)
-  slots: EvaluationSlot[];
+  slots: EvaluationSlot[]
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt: Date
 }

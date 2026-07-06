@@ -1,29 +1,23 @@
-import { ApprovalStatus } from 'src/common/enums/approval-status.enum';
-import { User } from 'src/users/entities/user.entity';
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  OneToOne,
-  JoinColumn,
-} from 'typeorm';
+import { ApprovalStatus } from 'src/common/enums/approval-status.enum'
+import { User } from 'src/users/entities/user.entity'
+import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn } from 'typeorm'
 
 @Entity('enrichers')
 export class Enricher {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @OneToOne(() => User, (user) => user.enricher, { onDelete: 'CASCADE' })
   @JoinColumn()
-  user: User;
+  user: User
 
   @Column()
-  organizationName: string;
+  organizationName: string
 
   @Column({
     type: 'enum',
     enum: ApprovalStatus,
     default: ApprovalStatus.PENDING,
   })
-  approvalStatus: ApprovalStatus;
+  approvalStatus: ApprovalStatus
 }

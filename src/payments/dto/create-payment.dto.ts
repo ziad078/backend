@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import {
   IsEnum,
   IsIn,
@@ -8,24 +8,24 @@ import {
   IsUUID,
   MaxLength,
   Min,
-} from 'class-validator';
-import { PaymentProviderEnum } from '../enums/payment-provider.enum';
-import type { CreatePaymentFields } from '../types/create-payment-fields.type';
+} from 'class-validator'
+import { PaymentProviderEnum } from '../enums/payment-provider.enum'
+import type { CreatePaymentFields } from '../types/create-payment-fields.type'
 
 export class CreatePaymentDto implements CreatePaymentFields {
   @ApiProperty({ example: 199.5, description: 'Amount in SAR (major units)' })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
-  amount: number;
+  amount: number
 
   @ApiPropertyOptional({ default: 'SAR', enum: ['SAR'] })
   @IsOptional()
   @IsIn(['SAR'])
-  currency?: string;
+  currency?: string
 
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
-  privateChildId: string;
+  privateChildId: string
 
   @ApiPropertyOptional({
     format: 'uuid',
@@ -33,7 +33,7 @@ export class CreatePaymentDto implements CreatePaymentFields {
   })
   @IsOptional()
   @IsUUID()
-  attemptRequestId?: string;
+  attemptRequestId?: string
 
   @ApiPropertyOptional({
     format: 'uuid',
@@ -41,16 +41,16 @@ export class CreatePaymentDto implements CreatePaymentFields {
   })
   @IsOptional()
   @IsUUID()
-  privateAttemptId?: string;
+  privateAttemptId?: string
 
   @ApiPropertyOptional({ example: 'Evaluation access' })
   @IsOptional()
   @IsString()
   @MaxLength(500)
-  description?: string;
+  description?: string
 
   @ApiPropertyOptional({ enum: PaymentProviderEnum })
   @IsOptional()
   @IsEnum(PaymentProviderEnum)
-  provider?: PaymentProviderEnum;
+  provider?: PaymentProviderEnum
 }

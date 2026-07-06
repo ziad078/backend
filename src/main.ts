@@ -32,7 +32,7 @@ async function bootstrap() {
     return out
   }
 
-  // app.useGlobalFilters(new AllExceptionsFilter())
+  app.useGlobalFilters(new AllExceptionsFilter())
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

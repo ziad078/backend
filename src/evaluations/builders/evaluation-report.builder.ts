@@ -1,24 +1,18 @@
-import { Injectable } from '@nestjs/common';
-import { ReportBuilder, Report } from './report-builder.interface';
+import { Injectable } from '@nestjs/common'
+import { ReportBuilder, Report } from './report-builder.interface'
 import {
   EvaluationResult,
   StandardEvaluationResult,
   PreschoolEvaluationResult,
-} from '../strategies/scoring-strategy.interface';
+} from '../strategies/scoring-strategy.interface'
 
-function isStandardEvaluationResult(
-  result: EvaluationResult,
-): result is StandardEvaluationResult {
-  return 'maxTotalScore' in result;
+function isStandardEvaluationResult(result: EvaluationResult): result is StandardEvaluationResult {
+  return 'maxTotalScore' in result
 }
 
 @Injectable()
 export class EvaluationReportBuilder implements ReportBuilder {
-  build(
-    result: EvaluationResult,
-    childName: string,
-    evaluationType: string,
-  ): Report {
+  build(result: EvaluationResult, childName: string, evaluationType: string): Report {
     if (isStandardEvaluationResult(result)) {
       return {
         title: `تقرير تقييم ${evaluationType}`,
@@ -44,9 +38,9 @@ export class EvaluationReportBuilder implements ReportBuilder {
         })),
         interpretation: result.interpretation,
         recommendations: result.recommendations,
-      };
+      }
     } else {
-      return this.buildPreschoolReport(result, childName, evaluationType);
+      return this.buildPreschoolReport(result, childName, evaluationType)
     }
   }
 
@@ -78,18 +72,18 @@ export class EvaluationReportBuilder implements ReportBuilder {
         result.giftedIndicator ? ' - يظهر مؤشرات الموهبة' : ''
       }`,
       recommendations: [],
-    };
+    }
   }
 
   private generateStandardSummary(result: StandardEvaluationResult): string {
     if (result.overallPercentage >= 80) {
-      return 'أداء ممتاز - الطفل يظهر قدرات عالية في المجالات المقاسة';
+      return 'أداء ممتاز - الطفل يظهر قدرات عالية في المجالات المقاسة'
     } else if (result.overallPercentage >= 60) {
-      return 'أداء جيد جداً - الطفل يظهر قدرات قوية في معظم المجالات';
+      return 'أداء جيد جداً - الطفل يظهر قدرات قوية في معظم المجالات'
     } else if (result.overallPercentage >= 40) {
-      return 'أداء متوسط - الطفل يظهر قدرات متوسطة في المجالات المقاسة';
+      return 'أداء متوسط - الطفل يظهر قدرات متوسطة في المجالات المقاسة'
     } else {
-      return 'أداء يحتاج دعم - يوصى بتقديم دعم إضافي للطفل';
+      return 'أداء يحتاج دعم - يوصى بتقديم دعم إضافي للطفل'
     }
   }
 
@@ -99,10 +93,10 @@ export class EvaluationReportBuilder implements ReportBuilder {
         ? 'مستوى عالي'
         : result.level === 'MEDIUM'
           ? 'مستوى متوسط'
-          : 'مستوى منخفض';
+          : 'مستوى منخفض'
     const giftedText = result.giftedIndicator
       ? 'الطفل يظهر مؤشرات الموهبة'
-      : 'الطفل لا يظهر مؤشرات الموهبة كافية';
-    return `${levelText} - ${giftedText}`;
+      : 'الطفل لا يظهر مؤشرات الموهبة كافية'
+    return `${levelText} - ${giftedText}`
   }
 }

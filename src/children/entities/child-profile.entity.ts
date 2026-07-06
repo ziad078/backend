@@ -6,44 +6,44 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
-} from 'typeorm';
-import { OrganizationChild } from './organization-child.entity';
-import { PrivateChild } from './private-child.entity';
+} from 'typeorm'
+import { OrganizationChild } from './organization-child.entity'
+import { PrivateChild } from './private-child.entity'
 
 @Entity('children_profiles')
 export class ChildProfile {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column({ type: 'uuid' })
-  organizationChildId: string;
+  organizationChildId: string
 
   @OneToOne(() => OrganizationChild, (child) => child.profile, {
     nullable: true,
   })
   @JoinColumn({ name: 'organizationChildId' })
-  organizationChild: OrganizationChild;
+  organizationChild: OrganizationChild
 
   @Column({ type: 'uuid' })
-  privateChildId: string;
+  privateChildId: string
   @OneToOne(() => PrivateChild, (child) => child.profile, {
     nullable: true,
   })
   @JoinColumn({ name: 'privateChildId' })
-  privateChild: PrivateChild;
+  privateChild: PrivateChild
 
   @Column({ nullable: true })
-  diagnoses: string;
+  diagnoses: string
 
   @Column({ nullable: true })
-  notes: string;
+  notes: string
 
   @Column({ default: 'active' })
-  status: string;
+  status: string
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt: Date
 }

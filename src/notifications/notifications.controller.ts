@@ -8,22 +8,22 @@ import {
   ParseUUIDPipe,
   Query,
   Req,
-} from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
-import { NotificationsService } from './notifications.service';
-import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
-import { DispatchNotificationDto } from './dto/dispatch-notification.dto';
-import { UserRole } from 'src/common/enums/role.enum';
-import { Roles } from 'src/users/decorators/role.decorator';
-import { NotificationDelivery } from './enums/notification-delivery.enum';
+} from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import type { Request } from 'express'
+import { NotificationsService } from './notifications.service'
+import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto'
+import { DispatchNotificationDto } from './dto/dispatch-notification.dto'
+import { UserRole } from 'src/common/enums/role.enum'
+import { Roles } from 'src/users/decorators/role.decorator'
+import { NotificationDelivery } from './enums/notification-delivery.enum'
 
 type JwtRequestUser = {
-  userId: string;
-  email: string;
-  roles: { name: string }[];
-  phone: string;
-};
+  userId: string
+  email: string
+  roles: { name: string }[]
+  phone: string
+}
 
 @ApiTags('notifications')
 @ApiBearerAuth()
@@ -41,12 +41,12 @@ export class NotificationsController {
       title: 'Verify your email',
       message: 'Email verification request',
       type: 'verify-email',
-    });
+    })
 
     return {
       success: true,
       message: 'Verification email queued successfully',
-    };
+    }
   }
 
   @Get()
@@ -55,13 +55,13 @@ export class NotificationsController {
     @Req() req: Request & { user: JwtRequestUser },
     @Query() query: ListNotificationsQueryDto,
   ) {
-    return this.notificationsService.listForUser(req.user.userId, query);
+    return this.notificationsService.listForUser(req.user.userId, query)
   }
 
   @Get('unread-count')
   @ApiOperation({ summary: 'Unread in-app notification count' })
   unreadCount(@Req() req: Request & { user: JwtRequestUser }) {
-    return this.notificationsService.unreadCount(req.user.userId);
+    return this.notificationsService.unreadCount(req.user.userId)
   }
 
   @Patch('read-all')
@@ -69,7 +69,7 @@ export class NotificationsController {
     summary: 'Mark all notifications as read for the current user',
   })
   markAllRead(@Req() req: Request & { user: JwtRequestUser }) {
-    return this.notificationsService.markAllAsRead(req.user.userId);
+    return this.notificationsService.markAllAsRead(req.user.userId)
   }
 
   @Patch(':id/read')
@@ -78,7 +78,7 @@ export class NotificationsController {
     @Req() req: Request & { user: JwtRequestUser },
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    return this.notificationsService.markAsRead(req.user.userId, id);
+    return this.notificationsService.markAsRead(req.user.userId, id)
   }
 
   @Roles(UserRole.ADMIN)
@@ -89,6 +89,6 @@ export class NotificationsController {
       'Queues email, in-app, or both. Recipient email defaults to the user profile when email is involved.',
   })
   dispatch(@Body() dto: DispatchNotificationDto) {
-    return this.notificationsService.dispatch(dto);
+    return this.notificationsService.dispatch(dto)
   }
 }

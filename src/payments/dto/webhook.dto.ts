@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 /**
  * Documented shape for Moyasar-style webhooks (parsed JSON).
@@ -6,22 +6,22 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  */
 export class MoyasarWebhookDataDto {
   @ApiProperty()
-  id: string;
+  id: string
 
   @ApiPropertyOptional()
-  status?: string;
+  status?: string
 
   @ApiPropertyOptional()
-  amount?: number;
+  amount?: number
 
   @ApiPropertyOptional()
-  currency?: string;
+  currency?: string
 }
 
 export class WebhookDto {
   @ApiProperty({ example: 'payment_paid' })
-  type: string;
+  type: string
 
   @ApiProperty({ type: MoyasarWebhookDataDto })
-  data: MoyasarWebhookDataDto;
+  data: MoyasarWebhookDataDto
 }

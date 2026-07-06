@@ -37,6 +37,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const errorResponse: ApiErrorResponse = {
       success: false,
+      statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.originalUrl,
       error: { code, message, details },

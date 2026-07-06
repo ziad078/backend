@@ -1,22 +1,22 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { PaymentsService } from './payments.service';
+import { Injectable, Logger } from '@nestjs/common'
+import { Cron, CronExpression } from '@nestjs/schedule'
+import { PaymentsService } from './payments.service'
 
 @Injectable()
 export class PaymentsCronService {
-  private readonly logger = new Logger(PaymentsCronService.name);
+  private readonly logger = new Logger(PaymentsCronService.name)
 
   constructor(private readonly payments: PaymentsService) {}
 
   @Cron(CronExpression.EVERY_5_MINUTES)
   async expireStalePayments(): Promise<void> {
     try {
-      await this.payments.expirePayments();
+      await this.payments.expirePayments()
     } catch (err) {
       this.logger.error(
         `expireStalePayments failed: ${err instanceof Error ? err.message : err}`,
         err instanceof Error ? err.stack : undefined,
-      );
+      )
     }
   }
 
@@ -24,15 +24,15 @@ export class PaymentsCronService {
   @Cron('0 */15 * * * *')
   async autoRetryFailedPayments(): Promise<void> {
     if (process.env.PAYMENT_AUTO_RETRY_ENABLED === 'false') {
-      return;
+      return
     }
     try {
-      await this.payments.autoRetryFailedPayments();
+      await this.payments.autoRetryFailedPayments()
     } catch (err) {
       this.logger.error(
         `autoRetryFailedPayments failed: ${err instanceof Error ? err.message : err}`,
         err instanceof Error ? err.stack : undefined,
-      );
+      )
     }
   }
 }

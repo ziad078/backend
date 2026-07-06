@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, Length } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger'
+import { IsString, Length } from 'class-validator'
 
 export class CreateActivityDto {
   @ApiProperty({
@@ -10,5 +10,5 @@ export class CreateActivityDto {
   })
   @IsString()
   @Length(2, 255)
-  name: string;
+  name: string
 }

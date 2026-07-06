@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from '../entities/user.entity';
-import { UserRole } from 'src/common/enums/role.enum';
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { User } from '../entities/user.entity'
+import { UserRole } from 'src/common/enums/role.enum'
 
 @Injectable()
 export class ParentsServices {
@@ -18,20 +18,17 @@ export class ParentsServices {
       .leftJoinAndSelect('user.parentProfile', 'parentProfile')
       .leftJoinAndSelect('parentProfile.organizationLinks', 'organizationLink')
       .leftJoinAndSelect('organizationLink.organization', 'organization')
-      .leftJoinAndSelect(
-        'parentProfile.organizationChildren',
-        'organizationChildren',
-      )
+      .leftJoinAndSelect('parentProfile.organizationChildren', 'organizationChildren')
       .leftJoinAndSelect('parentProfile.privateChildren', 'privateChildren')
       .where('user.phone = :phone', { phone })
-      .getOne();
+      .getOne()
 
     // ✅ 1. User مش موجود
     if (!user) {
-      return { status: 'not_found' };
+      return { status: 'not_found' }
     }
 
-    const isParent = user.roles?.some((r) => r.name === UserRole.PARENT);
+    const isParent = user.roles?.some((r) => r.name === UserRole.PARENT)
 
     // ✅ 2. User موجود بس مش Parent
     if (!isParent || !user.parentProfile) {
@@ -42,11 +39,11 @@ export class ParentsServices {
           name: user.name,
           phone: user.phone,
         },
-      };
+      }
     }
 
     // ✅ 3. Parent موجود
-    const { parentProfile, ...parentInfo } = user;
+    const { parentProfile, ...parentInfo } = user
 
     const children = [
       ...(parentProfile.organizationChildren || []).map((c) => ({
@@ -57,7 +54,7 @@ export class ParentsServices {
         ...c,
         type: 'private',
       })),
-    ];
+    ]
 
     return {
       status: 'parent_found',
@@ -66,6 +63,6 @@ export class ParentsServices {
         parentProfileId: parentProfile.id,
       },
       children,
-    };
+    }
   }
 }

@@ -1,14 +1,14 @@
 export type ProcessPaymentWebhookJobPayload = {
-  providerPaymentId: string;
+  providerPaymentId: string
   /** Raw JSON string (re-parsed in worker). */
-  rawBody: string;
-};
+  rawBody: string
+}
 
 export type HandlePaymentSuccessJobPayload = {
-  paymentId: string;
-};
+  paymentId: string
+}
 
 export type HandlePaymentFailureJobPayload = {
-  paymentId: string;
-  reason?: string;
-};
+  paymentId: string
+  reason?: string
+}

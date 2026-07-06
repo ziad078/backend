@@ -7,50 +7,50 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm';
-import { CapacityRequestStatus } from 'src/common/enums/capacity-request-status.enum';
-import { ParentProfile } from 'src/users/entities/parent-profile.entity';
-import { Payment } from 'src/payments/entities/payment.entity';
+} from 'typeorm'
+import { CapacityRequestStatus } from 'src/common/enums/capacity-request-status.enum'
+import { ParentProfile } from 'src/users/entities/parent-profile.entity'
+import { Payment } from 'src/payments/entities/payment.entity'
 
 @Entity('capacity_requests')
 @Index('idx_capacity_parent', ['parentId'])
 @Index('idx_capacity_status', ['status'])
 export class CapacityRequest {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Index()
   @Column({ type: 'uuid' })
-  parentId: string;
+  parentId: string
 
   @ManyToOne(() => ParentProfile, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'parentId' })
-  parent: ParentProfile;
+  parent: ParentProfile
 
   @Column({ type: 'int' })
-  requestedCapacity: number;
+  requestedCapacity: number
 
   @Column({
     type: 'enum',
     enum: CapacityRequestStatus,
     default: CapacityRequestStatus.PENDING,
   })
-  status: CapacityRequestStatus;
+  status: CapacityRequestStatus
 
   @Index()
   @Column({ type: 'uuid', nullable: true })
-  paymentId: string | null;
+  paymentId: string | null
 
   @ManyToOne(() => Payment, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'paymentId' })
-  payment: Payment | null;
+  payment: Payment | null
 
   @Column({ type: 'text', nullable: true })
-  notes: string | null;
+  notes: string | null
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt: Date
 }

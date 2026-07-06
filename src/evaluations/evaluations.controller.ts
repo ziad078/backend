@@ -1,26 +1,18 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  Req,
-} from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from 'src/users/decorators/role.decorator';
-import { UserRole } from 'src/common/enums/role.enum';
-import { type AuthRequest } from 'src/common/interfaces/auth-request.interface';
-import { EvaluationsService } from './evaluations.service';
-import { StartEvaluationDto } from './dto/start-evaluation.dto';
-import { CreateEvaluationDto } from './dto/create-evaluation.dto';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Roles } from 'src/users/decorators/role.decorator'
+import { UserRole } from 'src/common/enums/role.enum'
+import { type AuthRequest } from 'src/common/interfaces/auth-request.interface'
+import { EvaluationsService } from './evaluations.service'
+import { StartEvaluationDto } from './dto/start-evaluation.dto'
+import { CreateEvaluationDto } from './dto/create-evaluation.dto'
 
 type JwtRequestUser = {
-  userId: string;
-  roles: { name: UserRole }[];
-  email?: string;
-  phone?: string;
-};
+  userId: string
+  roles: { name: UserRole }[]
+  email?: string
+  phone?: string
+}
 
 @ApiTags('evaluations')
 @ApiBearerAuth()
@@ -31,26 +23,25 @@ export class EvaluationsController {
   @Roles(UserRole.ADMIN)
   @Post()
   @ApiOperation({
-    summary:
-      'Create an evaluation with dimensions, questions and scored answers',
+    summary: 'Create an evaluation with dimensions, questions and scored answers',
   })
   create(@Body() dto: CreateEvaluationDto, @Req() req: AuthRequest) {
-    const user = req.user as unknown as JwtRequestUser;
+    const user = req.user as unknown as JwtRequestUser
     return this.service.createEvaluation(dto, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 
   @Roles(UserRole.ADMIN)
   @Get()
   @ApiOperation({ summary: 'Get all evaluations for admin' })
   getAll(@Req() req: AuthRequest) {
-    const user = req.user as unknown as JwtRequestUser;
+    const user = req.user as unknown as JwtRequestUser
     return this.service.getAllEvaluationsForAdmin({
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 
   @Roles(UserRole.PARENT)
@@ -60,11 +51,11 @@ export class EvaluationsController {
     @Param('childId', new ParseUUIDPipe()) childId: string,
     @Req() req: AuthRequest,
   ) {
-    const user = req.user as unknown as JwtRequestUser;
+    const user = req.user as unknown as JwtRequestUser
     return this.service.getAvailableEvaluationsForChild(childId, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 
   @Roles(UserRole.ADMIN)
@@ -72,15 +63,12 @@ export class EvaluationsController {
   @ApiOperation({
     summary: 'Get evaluation details with scoring data for admin',
   })
-  getDetails(
-    @Param('id', new ParseUUIDPipe()) evaluationId: string,
-    @Req() req: AuthRequest,
-  ) {
-    const user = req.user as unknown as JwtRequestUser;
+  getDetails(@Param('id', new ParseUUIDPipe()) evaluationId: string, @Req() req: AuthRequest) {
+    const user = req.user as unknown as JwtRequestUser
     return this.service.getEvaluationDetailsForAdmin(evaluationId, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 
   @Roles(UserRole.PARENT, UserRole.ADMIN)
@@ -88,15 +76,12 @@ export class EvaluationsController {
   @ApiOperation({
     summary: 'Get evaluation form without exposing score values',
   })
-  getForm(
-    @Param('id', new ParseUUIDPipe()) evaluationId: string,
-    @Req() req: AuthRequest,
-  ) {
-    const user = req.user as unknown as JwtRequestUser;
+  getForm(@Param('id', new ParseUUIDPipe()) evaluationId: string, @Req() req: AuthRequest) {
+    const user = req.user as unknown as JwtRequestUser
     return this.service.getEvaluationForm(evaluationId, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 
   @Roles(UserRole.PARENT)
@@ -107,10 +92,10 @@ export class EvaluationsController {
     @Body() dto: StartEvaluationDto,
     @Req() req: AuthRequest,
   ) {
-    const user = req.user as unknown as JwtRequestUser;
+    const user = req.user as unknown as JwtRequestUser
     return this.service.startEvaluation(evaluationId, dto, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 }

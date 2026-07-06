@@ -8,23 +8,23 @@ import {
   Post,
   Query,
   Req,
-} from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Roles } from 'src/users/decorators/role.decorator';
-import { UserRole } from 'src/common/enums/role.enum';
-import { type AuthRequest } from 'src/common/interfaces/auth-request.interface';
-import { EvaluationsService } from './evaluations.service';
-import { SaveProgressDto } from './dto/save-progress.dto';
-import { SubmitAttemptDto } from './dto/submit-attempt.dto';
-import { EvaluationAttemptStatus } from './enums/evaluation-attempt-status.enum';
-import { EvaluationSlotService } from './services/evaluation-slot.service';
+} from '@nestjs/common'
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Roles } from 'src/users/decorators/role.decorator'
+import { UserRole } from 'src/common/enums/role.enum'
+import { type AuthRequest } from 'src/common/interfaces/auth-request.interface'
+import { EvaluationsService } from './evaluations.service'
+import { SaveProgressDto } from './dto/save-progress.dto'
+import { SubmitAttemptDto } from './dto/submit-attempt.dto'
+import { EvaluationAttemptStatus } from './enums/evaluation-attempt-status.enum'
+import { EvaluationSlotService } from './services/evaluation-slot.service'
 
 type JwtRequestUser = {
-  userId: string;
-  roles: { name: UserRole }[];
-  email?: string;
-  phone?: string;
-};
+  userId: string
+  roles: { name: UserRole }[]
+  email?: string
+  phone?: string
+}
 
 @ApiTags('evaluation-attempts')
 @ApiBearerAuth()
@@ -44,7 +44,7 @@ export class AttemptsController {
     @Query('childId') childId: string,
     @Req() req: AuthRequest,
   ) {
-    const user = req.user as unknown as JwtRequestUser;
+    const user = req.user as unknown as JwtRequestUser
 
     return this.service.getAttemptsForAdmin(
       {
@@ -56,7 +56,7 @@ export class AttemptsController {
         evaluationId,
         childId,
       },
-    );
+    )
   }
 
   @Roles(UserRole.PARENT, UserRole.ADMIN)
@@ -66,12 +66,12 @@ export class AttemptsController {
     @Param('childId', new ParseUUIDPipe()) childId: string,
     @Req() req: AuthRequest,
   ) {
-    const user = req.user as unknown as JwtRequestUser;
+    const user = req.user as unknown as JwtRequestUser
 
     return this.service.getAttemptsForChild(childId, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 
   @Roles(UserRole.PARENT)
@@ -83,8 +83,8 @@ export class AttemptsController {
     @Param('childId', new ParseUUIDPipe()) childId: string,
     @Req() req: AuthRequest,
   ) {
-    const user = req.user as unknown as JwtRequestUser;
-    return this.slots.startMainSlot(childId, user.userId);
+    const user = req.user as unknown as JwtRequestUser
+    return this.slots.startMainSlot(childId, user.userId)
   }
 
   @Roles(UserRole.PARENT)
@@ -96,8 +96,8 @@ export class AttemptsController {
     @Param('childId', new ParseUUIDPipe()) childId: string,
     @Req() req: AuthRequest,
   ) {
-    const user = req.user as unknown as JwtRequestUser;
-    return this.slots.requestRetake(childId, user.userId);
+    const user = req.user as unknown as JwtRequestUser
+    return this.slots.requestRetake(childId, user.userId)
   }
 
   @Roles(UserRole.PARENT)
@@ -109,8 +109,8 @@ export class AttemptsController {
     @Param('childId', new ParseUUIDPipe()) childId: string,
     @Req() req: AuthRequest,
   ) {
-    const user = req.user as unknown as JwtRequestUser;
-    return this.slots.requestExtraAttempt(childId, user.userId);
+    const user = req.user as unknown as JwtRequestUser
+    return this.slots.requestExtraAttempt(childId, user.userId)
   }
 
   @Roles(UserRole.PARENT)
@@ -121,11 +121,11 @@ export class AttemptsController {
     @Body() dto: SaveProgressDto,
     @Req() req: AuthRequest,
   ) {
-    const user = req.user as unknown as JwtRequestUser;
+    const user = req.user as unknown as JwtRequestUser
     return this.service.saveProgress(attemptId, dto, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 
   @Roles(UserRole.PARENT)
@@ -136,43 +136,32 @@ export class AttemptsController {
     @Body() dto: SubmitAttemptDto,
     @Req() req: AuthRequest,
   ) {
-    const user = req.user as unknown as JwtRequestUser;
+    const user = req.user as unknown as JwtRequestUser
     return this.service.submitAttempt(attemptId, dto, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 
-  @Roles(
-    UserRole.PARENT,
-    UserRole.ADMIN,
-    UserRole.ORGANIZATIONOWNER,
-    UserRole.TEACHER,
-  )
+  @Roles(UserRole.PARENT, UserRole.ADMIN, UserRole.ORGANIZATIONOWNER, UserRole.TEACHER)
   @Get(':id')
   @ApiOperation({ summary: 'Get evaluation attempt details' })
-  get(
-    @Param('id', new ParseUUIDPipe()) attemptId: string,
-    @Req() req: AuthRequest,
-  ) {
-    const user = req.user as unknown as JwtRequestUser;
+  get(@Param('id', new ParseUUIDPipe()) attemptId: string, @Req() req: AuthRequest) {
+    const user = req.user as unknown as JwtRequestUser
     return this.service.getAttempt(attemptId, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 
   @Roles(UserRole.ADMIN)
   @Post(':id/approve')
   @ApiOperation({ summary: 'Approve an evaluation attempt' })
-  approve(
-    @Param('id', new ParseUUIDPipe()) attemptId: string,
-    @Req() req: AuthRequest,
-  ) {
-    const user = req.user as unknown as JwtRequestUser;
+  approve(@Param('id', new ParseUUIDPipe()) attemptId: string, @Req() req: AuthRequest) {
+    const user = req.user as unknown as JwtRequestUser
     return this.service.approveAttempt(attemptId, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    });
+    })
   }
 }

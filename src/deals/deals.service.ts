@@ -3,26 +3,26 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { NotificationDelivery } from 'src/notifications/enums/notification-delivery.enum';
-import { NotificationsService } from 'src/notifications/notifications.service';
-import { Organization } from 'src/organizations/entities/organization.entity';
-import { UserRole } from 'src/common/enums/role.enum';
-import { JwtRequestUser } from 'src/common/interfaces/jwt-request-user.interface';
-import { Teacher } from 'src/users/entities/teacher.entity';
-import { User } from 'src/users/entities/user.entity';
-import { Repository } from 'typeorm';
-import { CreateDealDto } from './dto/create-deal.dto';
-import { CreateProposalDto } from './dto/create-proposal.dto';
-import { UpdateProposalDto } from './dto/update-proposal.dto';
-import { DealStatus } from './enums/deal-status.enum';
-import { ProposalStatus } from './enums/proposal-status.enum';
-import { Activity } from './entities/activity.entity';
-import { Deal } from './entities/deal.entity';
-import { Proposal } from './entities/proposal.entity';
-import { AuditLoggingService } from 'src/common/services/audit-logging.service';
-import { DealAccessPolicy } from './policies/deal-access.policy';
+} from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { NotificationDelivery } from 'src/notifications/enums/notification-delivery.enum'
+import { NotificationsService } from 'src/notifications/notifications.service'
+import { Organization } from 'src/organizations/entities/organization.entity'
+import { UserRole } from 'src/common/enums/role.enum'
+import { JwtRequestUser } from 'src/common/interfaces/jwt-request-user.interface'
+import { Teacher } from 'src/users/entities/teacher.entity'
+import { User } from 'src/users/entities/user.entity'
+import { Repository } from 'typeorm'
+import { CreateDealDto } from './dto/create-deal.dto'
+import { CreateProposalDto } from './dto/create-proposal.dto'
+import { UpdateProposalDto } from './dto/update-proposal.dto'
+import { DealStatus } from './enums/deal-status.enum'
+import { ProposalStatus } from './enums/proposal-status.enum'
+import { Activity } from './entities/activity.entity'
+import { Deal } from './entities/deal.entity'
+import { Proposal } from './entities/proposal.entity'
+import { AuditLoggingService } from 'src/common/services/audit-logging.service'
+import { DealAccessPolicy } from './policies/deal-access.policy'
 
 @Injectable()
 export class DealsService {
@@ -47,26 +47,26 @@ export class DealsService {
   async createDeal(dto: CreateDealDto, currentUser: JwtRequestUser) {
     const activity = await this.activitiesRepo.findOne({
       where: { id: dto.activityId },
-    });
+    })
     if (!activity) {
-      throw new NotFoundException('Activity not found');
+      throw new NotFoundException('Activity not found')
     }
 
-    const organizationId = await this.resolveOrganizationId(currentUser);
+    const organizationId = await this.resolveOrganizationId(currentUser)
     const organization = await this.organizationsRepo.findOne({
       where: { id: organizationId },
       relations: ['owner'],
-    });
+    })
     if (!organization) {
-      throw new NotFoundException('Organization not found');
+      throw new NotFoundException('Organization not found')
     }
 
     const creator = await this.usersRepo.findOne({
       where: { id: currentUser.userId },
       select: ['id', 'name', 'email'],
-    });
+    })
     if (!creator) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found')
     }
 
     const deal = this.dealsRepo.create({
@@ -76,9 +76,9 @@ export class DealsService {
       studentsCount: dto.studentsCount,
       deadline: new Date(dto.deadline),
       status: DealStatus.OPEN,
-    });
+    })
 
-    const savedDeal = await this.dealsRepo.save(deal);
+    const savedDeal = await this.dealsRepo.save(deal)
 
     await this.auditService.logCreate(
       currentUser.userId,
@@ -92,46 +92,40 @@ export class DealsService {
         deadline: dto.deadline,
       },
       'Created deal',
-    );
+    )
 
-    await this.notifyServiceProviders(savedDeal.id);
+    await this.notifyServiceProviders(savedDeal.id)
 
-    return savedDeal;
+    return savedDeal
   }
 
-  async submitProposal(
-    dealId: string,
-    dto: CreateProposalDto,
-    currentUser: JwtRequestUser,
-  ) {
+  async submitProposal(dealId: string, dto: CreateProposalDto, currentUser: JwtRequestUser) {
     const deal = await this.dealsRepo.findOne({
       where: { id: dealId },
       relations: ['organization', 'organization.owner'],
-    });
+    })
     if (!deal) {
-      throw new NotFoundException('Deal not found');
+      throw new NotFoundException('Deal not found')
     }
 
-    this.ensureDealAcceptsBids(deal);
+    this.ensureDealAcceptsBids(deal)
 
     const existing = await this.proposalsRepo.findOne({
       where: {
         deal: { id: dealId },
         provider: { id: currentUser.userId },
       },
-    });
+    })
     if (existing) {
-      throw new BadRequestException(
-        'You have already submitted a proposal for this deal',
-      );
+      throw new BadRequestException('You have already submitted a proposal for this deal')
     }
 
     const provider = await this.usersRepo.findOne({
       where: { id: currentUser.userId },
       select: ['id', 'name', 'email'],
-    });
+    })
     if (!provider) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found')
     }
 
     const proposal = this.proposalsRepo.create({
@@ -139,8 +133,8 @@ export class DealsService {
       provider,
       price: dto.price.toFixed(2),
       status: ProposalStatus.PENDING,
-    });
-    const saved = await this.proposalsRepo.save(proposal);
+    })
+    const saved = await this.proposalsRepo.save(proposal)
 
     if (deal.organization?.owner?.id) {
       await this.notificationsService.enqueue({
@@ -148,88 +142,81 @@ export class DealsService {
         title: 'New proposal received',
         message: `A new proposal has been submitted for deal ${deal.id}.`,
         delivery: NotificationDelivery.IN_APP,
-      });
+      })
     }
 
-    return saved;
+    return saved
   }
 
-  async updateProposal(
-    proposalId: string,
-    dto: UpdateProposalDto,
-    currentUser: JwtRequestUser,
-  ) {
+  async updateProposal(proposalId: string, dto: UpdateProposalDto, currentUser: JwtRequestUser) {
     const proposal = await this.proposalsRepo.findOne({
       where: { id: proposalId },
       relations: ['deal', 'provider'],
-    });
+    })
     if (!proposal) {
-      throw new NotFoundException('Proposal not found');
+      throw new NotFoundException('Proposal not found')
     }
 
     if (proposal.provider.id !== currentUser.userId) {
-      throw new ForbiddenException('You can only update your own proposal');
+      throw new ForbiddenException('You can only update your own proposal')
     }
 
     if (new Date() >= proposal.deal.deadline) {
-      throw new BadRequestException(
-        'Cannot update proposal after deal deadline',
-      );
+      throw new BadRequestException('Cannot update proposal after deal deadline')
     }
 
-    proposal.price = dto.price.toFixed(2);
-    return this.proposalsRepo.save(proposal);
+    proposal.price = dto.price.toFixed(2)
+    return this.proposalsRepo.save(proposal)
   }
 
   private ensureDealAcceptsBids(deal: Deal): void {
     if (deal.status !== DealStatus.OPEN) {
-      throw new BadRequestException('This deal is closed');
+      throw new BadRequestException('This deal is closed')
     }
 
     if (new Date() >= new Date(deal.deadline)) {
-      throw new BadRequestException('Deal deadline has passed');
+      throw new BadRequestException('Deal deadline has passed')
     }
   }
 
   private async resolveOrganizationId(currentUser: JwtRequestUser) {
-    const hasRole = (role: UserRole) =>
-      currentUser.roles.some((r) => r.name === role);
+    const hasRole = (role: UserRole) => currentUser.roles.some((r) => r.name === role)
 
     if (hasRole(UserRole.ORGANIZATIONOWNER)) {
       const org = await this.organizationsRepo.findOne({
         where: { owner: { id: currentUser.userId } },
         select: ['id'],
-      });
+      })
       if (!org) {
-        throw new NotFoundException('Organization not found for owner');
+        throw new NotFoundException('Organization not found for owner')
       }
-      return org.id;
+      return org.id
     }
 
     if (hasRole(UserRole.TEACHER)) {
       const teacher = await this.teachersRepo.findOne({
         where: { user: { id: currentUser.userId } },
         relations: ['organization'],
-      });
+      })
       if (!teacher?.organization?.id) {
-        throw new NotFoundException('Organization not found for teacher');
+        throw new NotFoundException('Organization not found for teacher')
       }
-      return teacher.organization.id;
+      return teacher.organization.id
     }
 
-    throw new ForbiddenException('You are not allowed to create deals');
+    throw new ForbiddenException('You are not allowed to create deals')
   }
 
   listDeals(status?: string) {
-    const where = status ? { status: status as DealStatus } : {};
-    return this.dealsRepo.find({ where, order: { createdAt: 'DESC' } });
+    const where = status ? { status: status as DealStatus } : {}
+    return this.dealsRepo.find({ where, order: { createdAt: 'DESC' } })
   }
 
   findOne(id: string) {
     return this.dealsRepo.findOne({
       where: { id },
       relations: ['organization', 'activity', 'creator'],
-    });
+    })
   }
 
   listMyProposals(userId: string) {
@@ -237,72 +224,68 @@ export class DealsService {
       where: { provider: { id: userId } },
       relations: ['deal', 'deal.organization'],
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   async selectProposal(proposalId: string, currentUser: JwtRequestUser) {
     const proposal = await this.proposalsRepo.findOne({
       where: { id: proposalId },
       relations: ['deal', 'deal.organization', 'deal.organization.owner'],
-    });
-    if (!proposal) throw new NotFoundException('Proposal not found');
+    })
+    if (!proposal) throw new NotFoundException('Proposal not found')
 
-    const orgId = await this.resolveOrganizationId(currentUser);
+    const orgId = await this.resolveOrganizationId(currentUser)
     if (proposal.deal.organization.id !== orgId) {
-      throw new ForbiddenException(
-        'You can only manage your own organization deals',
-      );
+      throw new ForbiddenException('You can only manage your own organization deals')
     }
 
-    proposal.status = ProposalStatus.SELECTED;
-    proposal.deal.status = DealStatus.AWARDED;
+    proposal.status = ProposalStatus.SELECTED
+    proposal.deal.status = DealStatus.AWARDED
 
-    await this.proposalsRepo.save(proposal);
-    await this.dealsRepo.save(proposal.deal);
+    await this.proposalsRepo.save(proposal)
+    await this.dealsRepo.save(proposal.deal)
 
-    return proposal;
+    return proposal
   }
 
   async getProposalsForDeal(dealId: string, currentUser: JwtRequestUser) {
     const deal = await this.dealsRepo.findOne({
       where: { id: dealId },
       relations: ['organization', 'organization.owner'],
-    });
-    if (!deal) throw new NotFoundException('Deal not found');
+    })
+    if (!deal) throw new NotFoundException('Deal not found')
 
-    const orgId = await this.resolveOrganizationId(currentUser);
+    const orgId = await this.resolveOrganizationId(currentUser)
     if (deal.organization.id !== orgId) {
-      throw new ForbiddenException(
-        'You can only view proposals for your own deals',
-      );
+      throw new ForbiddenException('You can only view proposals for your own deals')
     }
 
     return this.proposalsRepo.find({
       where: { deal: { id: dealId } },
       relations: ['provider'],
       order: { createdAt: 'DESC' },
-    });
+    })
   }
 
   async adminApproveProposal(proposalId: string) {
     const proposal = await this.proposalsRepo.findOne({
       where: { id: proposalId },
       relations: ['deal'],
-    });
-    if (!proposal) throw new NotFoundException('Proposal not found');
+    })
+    if (!proposal) throw new NotFoundException('Proposal not found')
     if (proposal.status !== ProposalStatus.SELECTED) {
-      throw new BadRequestException('Only selected proposals can be approved');
+      throw new BadRequestException('Only selected proposals can be approved')
     }
 
-    proposal.status = ProposalStatus.APPROVED;
-    return this.proposalsRepo.save(proposal);
+    proposal.status = ProposalStatus.APPROVED
+    return this.proposalsRepo.save(proposal)
   }
 
   private async notifyServiceProviders(dealId: string): Promise<void> {
-    const providers = await this.usersRepo.find();
+    const providers = await this.usersRepo.find()
     const providerUsers = providers.filter((u) =>
       u.roles.some((role) => role.name === UserRole.ENRICHER),
-    );
+    )
 
     await Promise.all(
       providerUsers.map((provider) =>
@@ -313,6 +296,6 @@ export class DealsService {
           delivery: NotificationDelivery.IN_APP,
         }),
       ),
-    );
+    )
   }
 }

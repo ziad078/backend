@@ -5,23 +5,23 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-} from 'typeorm';
-import { Deal } from 'src/deals/entities/deal.entity';
+} from 'typeorm'
+import { Deal } from 'src/deals/entities/deal.entity'
 
 @Entity('activities')
 export class Activity {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column({ type: 'varchar', length: 255 })
-  name: string;
+  name: string
 
   @OneToMany(() => Deal, (deal) => deal.activity)
-  deals: Deal[];
+  deals: Deal[]
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt: Date
 }

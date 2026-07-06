@@ -1,11 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Notification } from '../entities/notification.entity';
+import { Injectable, Logger } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { Notification } from '../entities/notification.entity'
 
 @Injectable()
 export class InAppProvider {
-  private readonly logger = new Logger(InAppProvider.name);
+  private readonly logger = new Logger(InAppProvider.name)
 
   constructor(
     @InjectRepository(Notification)
@@ -27,16 +27,16 @@ export class InAppProvider {
         type,
         metadata,
         isRead: false,
-      });
+      })
 
-      return await this.notifications.save(row);
+      return await this.notifications.save(row)
     } catch (err) {
       this.logger.error(
         `Failed to persist in-app notification for user ${userId}: ${
           err instanceof Error ? err.message : String(err)
         }`,
-      );
-      throw err;
+      )
+      throw err
     }
   }
 }

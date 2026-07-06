@@ -6,43 +6,43 @@ import {
   OneToMany,
   JoinColumn,
   Index,
-} from 'typeorm';
-import { Evaluation } from './evaluation.entity';
-import { EvaluationQuestionAnswer } from './evaluation-question-answer.entity';
-import { EvaluationDimension } from './evaluation-dimension.entity';
+} from 'typeorm'
+import { Evaluation } from './evaluation.entity'
+import { EvaluationQuestionAnswer } from './evaluation-question-answer.entity'
+import { EvaluationDimension } from './evaluation-dimension.entity'
 
 @Entity('evaluation_questions')
 export class EvaluationQuestion {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Index()
   @Column({ type: 'uuid' })
-  evaluationId: string;
+  evaluationId: string
 
   @ManyToOne(() => Evaluation, (e) => e.questions, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'evaluationId' })
-  evaluation: Evaluation;
+  evaluation: Evaluation
 
   @Index()
   @Column({ type: 'uuid' })
-  evaluationDimensionId: string;
+  evaluationDimensionId: string
 
   @ManyToOne(() => EvaluationDimension, (ed) => ed.questions, {
     onDelete: 'CASCADE',
     nullable: false,
   })
   @JoinColumn({ name: 'evaluationDimensionId' })
-  evaluationDimension: EvaluationDimension;
+  evaluationDimension: EvaluationDimension
 
   @Column({ type: 'text' })
-  content: string;
+  content: string
 
   @Column({ type: 'int', default: 1 })
-  order: number;
+  order: number
 
   @OneToMany(() => EvaluationQuestionAnswer, (a) => a.question, {
     cascade: true,
   })
-  answers: EvaluationQuestionAnswer[];
+  answers: EvaluationQuestionAnswer[]
 }

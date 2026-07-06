@@ -1,5 +1,5 @@
-import { IsDateString, IsEnum, IsInt, IsOptional, IsUUID, Min } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsDateString, IsEnum, IsInt, IsOptional, IsUUID, Min } from 'class-validator'
+import { ApiProperty } from '@nestjs/swagger'
 
 export class StartEvaluationDto {
   @ApiProperty({
@@ -7,14 +7,14 @@ export class StartEvaluationDto {
     format: 'uuid',
   })
   @IsUUID()
-  childId: string;
+  childId: string
 
   @ApiProperty({
     description: 'Child type (organization or private)',
     enum: ['organization', 'private'],
   })
   @IsEnum(['organization', 'private'])
-  childType: 'organization' | 'private';
+  childType: 'organization' | 'private'
 
   /**
    * Provide ONE of:
@@ -28,7 +28,7 @@ export class StartEvaluationDto {
   })
   @IsOptional()
   @IsDateString()
-  expiresAt?: string;
+  expiresAt?: string
 
   @ApiProperty({
     required: false,
@@ -38,5 +38,5 @@ export class StartEvaluationDto {
   @IsOptional()
   @IsInt()
   @Min(1)
-  expiresInSeconds?: number;
+  expiresInSeconds?: number
 }

@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Type } from 'class-transformer'
 import {
   ArrayMinSize,
   IsArray,
@@ -11,119 +11,119 @@ import {
   Min,
   MinLength,
   ValidateNested,
-} from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-import { EvaluationType } from '../enums/evaluation-type.enum';
+} from 'class-validator'
+import { ApiProperty } from '@nestjs/swagger'
+import { EvaluationType } from '../enums/evaluation-type.enum'
 
 export class CreateEvaluationDimensionDto {
   @ApiProperty({ example: 'الذكاء اللغوي' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name: string
 
   @ApiProperty({ example: 'linguistic' })
   @IsString()
   @IsNotEmpty()
-  code: string;
+  code: string
 
   @ApiProperty({ example: 3 })
   @IsNumber()
-  minScore: number;
+  minScore: number
 
   @ApiProperty({ example: 12 })
   @IsNumber()
-  maxScore: number;
+  maxScore: number
 
   @ApiProperty({ required: false })
   @IsOptional()
-  interpretationRules?: Record<string, any>;
+  interpretationRules?: Record<string, any>
 }
 
 export class CreateEvaluationQuestionAnswerDto {
   @ApiProperty({ example: 'تنطبق بدرجة عالية' })
   @IsString()
   @IsNotEmpty()
-  text: string;
+  text: string
 
   @ApiProperty({ example: 4 })
   @IsNumber()
-  scoreValue: number;
+  scoreValue: number
 
   @ApiProperty({ example: 'A', required: false })
   @IsOptional()
   @IsString()
-  code?: string;
+  code?: string
 }
 
 export class CreateEvaluationQuestionDto {
   @ApiProperty({ example: 'لدى طفلي فضول يدفعه لفتح الكتب أو طلب القراءة له' })
   @IsString()
   @IsNotEmpty()
-  content: string;
+  content: string
 
   @ApiProperty({ example: 'linguistic' })
   @IsString()
   @IsNotEmpty()
-  dimensionCode: string;
+  dimensionCode: string
 
   @ApiProperty({ example: 1, required: false, default: 1 })
   @IsOptional()
   @IsNumber()
   @Min(1)
-  order?: number;
+  order?: number
 
   @ApiProperty({ type: [CreateEvaluationQuestionAnswerDto] })
   @IsArray()
   @ArrayMinSize(2)
   @ValidateNested({ each: true })
   @Type(() => CreateEvaluationQuestionAnswerDto)
-  answers: CreateEvaluationQuestionAnswerDto[];
+  answers: CreateEvaluationQuestionAnswerDto[]
 }
 
 export class CreateEvaluationDto {
   @ApiProperty({ example: 'مؤشر الذكاءات الثمانية' })
   @IsString()
   @MinLength(2)
-  title: string;
+  title: string
 
   @ApiProperty({ enum: EvaluationType })
   @IsEnum(EvaluationType)
-  type: EvaluationType;
+  type: EvaluationType
 
   @ApiProperty({ format: 'uuid', required: false })
   @IsOptional()
   @IsUUID()
-  institutionId?: string | null;
+  institutionId?: string | null
 
   @ApiProperty({ example: 3, required: false })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  ageFrom?: number;
+  ageFrom?: number
 
   @ApiProperty({ example: 15, required: false })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  ageTo?: number;
+  ageTo?: number
 
   @ApiProperty({ example: ['parent', 'teacher'], required: false })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  evaluatorTypes?: string[];
+  evaluatorTypes?: string[]
 
   @ApiProperty({ type: [CreateEvaluationDimensionDto] })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateEvaluationDimensionDto)
-  dimensions: CreateEvaluationDimensionDto[];
+  dimensions: CreateEvaluationDimensionDto[]
 
   @ApiProperty({ type: [CreateEvaluationQuestionDto] })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateEvaluationQuestionDto)
-  questions: CreateEvaluationQuestionDto[];
+  questions: CreateEvaluationQuestionDto[]
 }

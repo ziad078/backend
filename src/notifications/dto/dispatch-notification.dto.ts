@@ -1,22 +1,15 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEmail,
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUUID,
-  MaxLength,
-} from 'class-validator';
-import { NotificationDelivery } from '../enums/notification-delivery.enum';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { IsEmail, IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator'
+import { NotificationDelivery } from '../enums/notification-delivery.enum'
 
 export class DispatchNotificationDto {
   @ApiProperty({ enum: NotificationDelivery })
   @IsEnum(NotificationDelivery)
-  delivery: NotificationDelivery;
+  delivery: NotificationDelivery
 
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
-  userId: string;
+  userId: string
 
   @ApiPropertyOptional({
     description:
@@ -24,27 +17,27 @@ export class DispatchNotificationDto {
   })
   @IsOptional()
   @IsEmail()
-  email?: string;
+  email?: string
 
   @ApiProperty({ maxLength: 500 })
   @IsString()
   @MaxLength(500)
-  title: string;
+  title: string
 
   @ApiProperty({ maxLength: 10000 })
   @IsString()
   @MaxLength(10000)
-  message: string;
+  message: string
 
   @ApiPropertyOptional({ example: 'evaluation' })
   @IsOptional()
   @IsString()
   @MaxLength(50)
-  type?: string;
+  type?: string
 
   @ApiPropertyOptional({
     description: 'Optional metadata for frontend navigation and context',
   })
   @IsOptional()
-  metadata?: Record<string, unknown>;
+  metadata?: Record<string, unknown>
 }

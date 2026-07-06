@@ -8,19 +8,14 @@ import {
   Delete,
   ParseUUIDPipe,
   Req,
-} from '@nestjs/common';
-import { ClassesService } from './classes.service';
-import { CreateClassDto } from './dto/create-class.dto';
-import { UpdateClassDto } from './dto/update-class.dto';
-import { Roles } from 'src/users/decorators/role.decorator';
-import { UserRole } from 'src/common/enums/role.enum';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
-import { type AuthRequest } from 'src/common/interfaces/auth-request.interface';
+} from '@nestjs/common'
+import { ClassesService } from './classes.service'
+import { CreateClassDto } from './dto/create-class.dto'
+import { UpdateClassDto } from './dto/update-class.dto'
+import { Roles } from 'src/users/decorators/role.decorator'
+import { UserRole } from 'src/common/enums/role.enum'
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
+import { type AuthRequest } from 'src/common/interfaces/auth-request.interface'
 
 @ApiTags('classes')
 @ApiBearerAuth()
@@ -33,41 +28,35 @@ export class ClassesController {
   @Roles(UserRole.ORGANIZATIONOWNER)
   @Post()
   create(@Body() createClassDto: CreateClassDto, @Req() req: AuthRequest) {
-    return this.classesService.create(createClassDto, req.user);
+    return this.classesService.create(createClassDto, req.user)
   }
 
   @ApiOperation({ summary: 'Get all classes' })
   @Roles(UserRole.ADMIN)
   @Get()
   findAll() {
-    return this.classesService.findAll();
+    return this.classesService.findAll()
   }
 
   @ApiOperation({ summary: 'Get all CLASSES in ORG' })
   @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN, UserRole.TEACHER)
   @Get('organization/:orgId')
-  findClassesByOrg(
-    @Param('orgId', new ParseUUIDPipe()) orgId: string,
-    @Req() req: AuthRequest,
-  ) {
-    return this.classesService.findClassesByOrg(orgId, req.user);
+  findClassesByOrg(@Param('orgId', new ParseUUIDPipe()) orgId: string, @Req() req: AuthRequest) {
+    return this.classesService.findClassesByOrg(orgId, req.user)
   }
 
   @ApiOperation({ summary: 'Get all children in class' })
   @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN, UserRole.TEACHER)
   @Get(':id/get-children')
-  getChildrenInClass(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Req() req: AuthRequest,
-  ) {
-    return this.classesService.getChildrenInClass(id, req.user);
+  getChildrenInClass(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthRequest) {
+    return this.classesService.getChildrenInClass(id, req.user)
   }
 
   @ApiOperation({ summary: 'Get one class' })
   @Roles(UserRole.ADMIN, UserRole.ORGANIZATIONOWNER, UserRole.TEACHER)
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.classesService.findOne(id);
+    return this.classesService.findOne(id)
   }
 
   @ApiOperation({ summary: 'Update a class' })
@@ -78,17 +67,14 @@ export class ClassesController {
     @Body() updateClassDto: UpdateClassDto,
     @Req() req: AuthRequest,
   ) {
-    return this.classesService.update(id, updateClassDto, req.user);
+    return this.classesService.update(id, updateClassDto, req.user)
   }
 
   @ApiOperation({ summary: 'Delete a class' })
   @Roles(UserRole.ORGANIZATIONOWNER)
   @Delete(':id')
-  remove(
-    @Param('id', new ParseUUIDPipe()) id: string,
-    @Req() req: AuthRequest,
-  ) {
-    return this.classesService.remove(id, req.user);
+  remove(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthRequest) {
+    return this.classesService.remove(id, req.user)
   }
 
   @ApiOperation({ summary: 'asign child to class' })
@@ -99,6 +85,6 @@ export class ClassesController {
     @Param('clsId', new ParseUUIDPipe()) clsId: string,
     @Req() req: AuthRequest,
   ) {
-    return this.classesService.asignChild(childId, clsId, req.user);
+    return this.classesService.asignChild(childId, clsId, req.user)
   }
 }

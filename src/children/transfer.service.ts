@@ -3,20 +3,25 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Class } from 'src/classes/entities/class.entity';
-import { OrganizationChild } from 'src/children/entities/organization-child.entity';
-import { PrivateChild } from 'src/children/entities/private-child.entity';
-import { TransferRequest } from 'src/children/entities/transfer-request.entity';
-import { TransferRequestStatus } from 'src/children/enums/transfer-request-status.enum';
-import { Organization } from 'src/organizations/entities/organization.entity';
-import { EntityManager, Repository } from 'typeorm';
-import { ListTransferRequestsDto } from './dto/list-transfer-requests.dto';
-import { AuditLoggingService } from 'src/common/services/audit-logging.service';
-import { AuditAction } from 'src/common/enums/audit-action.enum';
-import { TransferAccessPolicy } from './policies/transfer-access.policy';
-import { resolveChild, getChildId, getChildType, ensureSingleChildType } from 'src/common/helpers/child-resolver.helper';
+} from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Class } from 'src/classes/entities/class.entity'
+import { OrganizationChild } from 'src/children/entities/organization-child.entity'
+import { PrivateChild } from 'src/children/entities/private-child.entity'
+import { TransferRequest } from 'src/children/entities/transfer-request.entity'
+import { TransferRequestStatus } from 'src/children/enums/transfer-request-status.enum'
+import { Organization } from 'src/organizations/entities/organization.entity'
+import { EntityManager, Repository } from 'typeorm'
+import { ListTransferRequestsDto } from './dto/list-transfer-requests.dto'
+import { AuditLoggingService } from 'src/common/services/audit-logging.service'
+import { AuditAction } from 'src/common/enums/audit-action.enum'
+import { TransferAccessPolicy } from './policies/transfer-access.policy'
+import {
+  resolveChild,
+  getChildId,
+  getChildType,
+  ensureSingleChildType,
+} from 'src/common/helpers/child-resolver.helper'
 
 @Injectable()
 export class TransferService {
@@ -42,68 +47,69 @@ export class TransferService {
     requestingUserRoles: string[],
     manager?: EntityManager,
   ): Promise<TransferRequest> {
-    const transferRepo = manager
-      ? manager.getRepository(TransferRequest)
-      : this.transferRequests;
-    const orgChildRepo = manager ? manager.getRepository(OrganizationChild) : this.organizationChildren;
-    const privateChildRepo = manager ? manager.getRepository(PrivateChild) : this.privateChildren;
+    const transferRepo = manager ? manager.getRepository(TransferRequest) : this.transferRequests
+    const orgChildRepo = manager
+      ? manager.getRepository(OrganizationChild)
+      : this.organizationChildren
+    const privateChildRepo = manager ? manager.getRepository(PrivateChild) : this.privateChildren
     const orgRepo = manager
       ? manager.getRepository(Organization)
-      : this.transferRequests.manager.getRepository(Organization);
+      : this.transferRequests.manager.getRepository(Organization)
 
-    let fromOrganizationId: string;
+    let fromOrganizationId: string
 
     if (childType === 'organization') {
-      const orgChild = await orgChildRepo.findOne({ 
+      const orgChild = await orgChildRepo.findOne({
         where: { id: childId },
-        relations: ['organization', 'class']
-      });
-      if (!orgChild) throw new NotFoundException('Organization child not found');
-      fromOrganizationId = orgChild.organizationId;
+        relations: ['organization', 'class'],
+      })
+      if (!orgChild) throw new NotFoundException('Organization child not found')
+      fromOrganizationId = orgChild.organizationId
       if (fromOrganizationId === toOrganizationId) {
-        throw new ConflictException('Child already exists in your school');
+        throw new ConflictException('Child already exists in your school')
       }
     } else {
-      const privateChild = await privateChildRepo.findOne({ where: { id: childId } });
-      if (!privateChild) throw new NotFoundException('Private child not found');
-      throw new BadRequestException('Cannot transfer private child - only organization children can be transferred');
+      const privateChild = await privateChildRepo.findOne({ where: { id: childId } })
+      if (!privateChild) throw new NotFoundException('Private child not found')
+      throw new BadRequestException(
+        'Cannot transfer private child - only organization children can be transferred',
+      )
     }
 
-    const toOrganization = await orgRepo.findOneBy({ id: toOrganizationId });
-    if (!toOrganization)
-      throw new NotFoundException('target organization not found');
+    const toOrganization = await orgRepo.findOneBy({ id: toOrganizationId })
+    if (!toOrganization) throw new NotFoundException('target organization not found')
 
     const whereClause: any = {
       fromOrganizationId,
       toOrganizationId,
       status: TransferRequestStatus.PENDING,
-    };
-    
+    }
+
     if (childType === 'organization') {
-      whereClause.organizationChildId = childId;
+      whereClause.organizationChildId = childId
     } else {
-      whereClause.privateChildId = childId;
+      whereClause.privateChildId = childId
     }
 
     const existingPending = await transferRepo.findOne({
       where: whereClause,
-    });
-    if (existingPending) return existingPending;
+    })
+    if (existingPending) return existingPending
 
     const transferData: any = {
       fromOrganizationId,
       toOrganizationId,
       status: TransferRequestStatus.PENDING,
-    };
-    
-    if (childType === 'organization') {
-      transferData.organizationChildId = childId;
-    } else {
-      transferData.privateChildId = childId;
     }
 
-    const transfer = transferRepo.create(transferData);
-    const saved = await transferRepo.save(transfer) as unknown as TransferRequest;
+    if (childType === 'organization') {
+      transferData.organizationChildId = childId
+    } else {
+      transferData.privateChildId = childId
+    }
+
+    const transfer = transferRepo.create(transferData)
+    const saved = (await transferRepo.save(transfer)) as unknown as TransferRequest
 
     await this.auditService.logCreate(
       requestingUserId,
@@ -113,9 +119,9 @@ export class TransferService {
       saved.id,
       { childId, childType, toOrganizationId },
       'Requested child transfer',
-    );
+    )
 
-    return saved;
+    return saved
   }
 
   async approveTransfer(
@@ -126,43 +132,38 @@ export class TransferService {
     approvingUserRoles: string[],
     manager?: EntityManager,
   ): Promise<TransferRequest> {
-    const transferRepo = manager
-      ? manager.getRepository(TransferRequest)
-      : this.transferRequests;
-    const orgChildRepo = manager ? manager.getRepository(OrganizationChild) : this.organizationChildren;
-    const classRepo = manager ? manager.getRepository(Class) : this.classes;
+    const transferRepo = manager ? manager.getRepository(TransferRequest) : this.transferRequests
+    const orgChildRepo = manager
+      ? manager.getRepository(OrganizationChild)
+      : this.organizationChildren
+    const classRepo = manager ? manager.getRepository(Class) : this.classes
 
     const transfer = await transferRepo.findOne({
       where: { id: transferRequestId },
       relations: ['fromOrganization', 'toOrganization', 'organizationChild', 'privateChild'],
-    });
-    if (!transfer) throw new NotFoundException('transfer request not found');
+    })
+    if (!transfer) throw new NotFoundException('transfer request not found')
     if (transfer.status !== TransferRequestStatus.PENDING) {
-      throw new ConflictException('Transfer request is already resolved');
+      throw new ConflictException('Transfer request is already resolved')
     }
 
     const cls = await classRepo.findOne({
       where: { id: classId },
       relations: { organization: true },
-    });
-    if (!cls) throw new NotFoundException('class not found');
+    })
+    if (!cls) throw new NotFoundException('class not found')
     if (cls.organization.id !== transfer.toOrganizationId) {
-      throw new BadRequestException(
-        'Class must belong to the target organization',
-      );
+      throw new BadRequestException('Class must belong to the target organization')
     }
 
-    const oldValue = { status: transfer.status };
-    transfer.status = TransferRequestStatus.APPROVED;
-    await transferRepo.save(transfer);
+    const oldValue = { status: transfer.status }
+    transfer.status = TransferRequestStatus.APPROVED
+    await transferRepo.save(transfer)
 
     if (transfer.organizationChildId) {
-      await orgChildRepo.update(
-        { id: transfer.organizationChildId },
-        { classId },
-      );
+      await orgChildRepo.update({ id: transfer.organizationChildId }, { classId })
     } else {
-      throw new BadRequestException('Cannot approve transfer for private child');
+      throw new BadRequestException('Cannot approve transfer for private child')
     }
 
     await this.auditService.logApprove(
@@ -172,9 +173,9 @@ export class TransferService {
       'TransferRequest',
       transferRequestId,
       'Approved child transfer',
-    );
+    )
 
-    return transfer;
+    return transfer
   }
 
   async rejectTransfer(
@@ -184,21 +185,19 @@ export class TransferService {
     rejectingUserRoles: string[],
     manager?: EntityManager,
   ): Promise<TransferRequest> {
-    const transferRepo = manager
-      ? manager.getRepository(TransferRequest)
-      : this.transferRequests;
+    const transferRepo = manager ? manager.getRepository(TransferRequest) : this.transferRequests
 
     const transfer = await transferRepo.findOne({
       where: { id: transferRequestId },
-    });
-    if (!transfer) throw new NotFoundException('transfer request not found');
+    })
+    if (!transfer) throw new NotFoundException('transfer request not found')
     if (transfer.status !== TransferRequestStatus.PENDING) {
-      throw new ConflictException('Transfer request is already resolved');
+      throw new ConflictException('Transfer request is already resolved')
     }
 
-    const oldValue = { status: transfer.status };
-    transfer.status = TransferRequestStatus.REJECTED;
-    await transferRepo.save(transfer);
+    const oldValue = { status: transfer.status }
+    transfer.status = TransferRequestStatus.REJECTED
+    await transferRepo.save(transfer)
 
     await this.auditService.logReject(
       rejectingUserId,
@@ -207,9 +206,9 @@ export class TransferService {
       'TransferRequest',
       transferRequestId,
       'Rejected child transfer',
-    );
+    )
 
-    return transfer;
+    return transfer
   }
 
   async getTransferRequests(query: ListTransferRequestsDto) {
@@ -220,34 +219,34 @@ export class TransferService {
       .leftJoinAndSelect('transfer.privateChild', 'privateChild')
       .leftJoinAndSelect('transfer.fromOrganization', 'fromOrganization')
       .leftJoinAndSelect('transfer.toOrganization', 'toOrganization')
-      .orderBy('transfer.createdAt', 'DESC');
+      .orderBy('transfer.createdAt', 'DESC')
 
     if (query.toOrganizationId) {
       qb.andWhere('transfer.toOrganizationId = :toOrganizationId', {
         toOrganizationId: query.toOrganizationId,
-      });
+      })
     }
 
     if (query.fromOrganizationId) {
       qb.andWhere('transfer.fromOrganizationId = :fromOrganizationId', {
         fromOrganizationId: query.fromOrganizationId,
-      });
+      })
     }
 
     if (query.status) {
       qb.andWhere('transfer.status = :status', {
         status: query.status,
-      });
+      })
     }
 
-    const requests = await qb.getMany();
+    const requests = await qb.getMany()
 
     return {
       requests: requests.map((request) => {
-        const child = resolveChild(request);
-        const childType = getChildType(request);
-        const childId = getChildId(request);
-        
+        const child = resolveChild(request)
+        const childType = getChildType(request)
+        const childId = getChildId(request)
+
         return {
           id: request.id,
           childId,
@@ -265,12 +264,13 @@ export class TransferService {
                 name: child.name,
                 birthDate: child.birthDate,
                 type: childType,
-                class: childType === 'organization' && request.organizationChild?.class
-                  ? {
-                      id: request.organizationChild.class.id,
-                      name: request.organizationChild.class.name,
-                    }
-                  : null,
+                class:
+                  childType === 'organization' && request.organizationChild?.class
+                    ? {
+                        id: request.organizationChild.class.id,
+                        name: request.organizationChild.class.name,
+                      }
+                    : null,
               }
             : null,
 
@@ -287,8 +287,8 @@ export class TransferService {
                 organizationName: request.toOrganization.organizationName,
               }
             : null,
-        };
+        }
       }),
-    };
+    }
   }
 }

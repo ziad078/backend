@@ -1,18 +1,13 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm'
 
 @Entity('children-reports')
 export class ChildReport {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column('text')
-  scoreJson: string;
+  scoreJson: string
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date
 }

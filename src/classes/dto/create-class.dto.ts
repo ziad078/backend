@@ -1,11 +1,11 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator'
 
 export class CreateClassDto {
   @ApiProperty({ example: 'class-name' })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name: string
 
   @ApiProperty({
     description: 'Grade ID',
@@ -13,7 +13,7 @@ export class CreateClassDto {
     format: 'uuid',
   })
   @IsUUID()
-  gradeId: string;
+  gradeId: string
 
   @ApiPropertyOptional({
     description: 'Teacher assigned to this class',
@@ -21,5 +21,5 @@ export class CreateClassDto {
   })
   @IsOptional()
   @IsUUID()
-  teacherId?: string;
+  teacherId?: string
 }

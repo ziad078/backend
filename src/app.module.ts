@@ -24,6 +24,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import { CommonModule } from './common/common.module'
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor'
 import { CapacityModule } from './capacity/capacity.module'
+import { ApiResponseSuccessIntercepter } from './common/interceptors/api-success-response.interceptor'
 
 @Module({
   imports: [
@@ -111,6 +112,10 @@ import { CapacityModule } from './capacity/capacity.module'
     {
       provide: APP_INTERCEPTOR,
       useClass: ClassSerializerInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ApiResponseSuccessIntercepter,
     },
     {
       provide: APP_INTERCEPTOR,

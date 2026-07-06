@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger'
 import {
   IsDateString,
   IsInt,
@@ -7,17 +7,17 @@ import {
   Validate,
   ValidatorConstraint,
   ValidatorConstraintInterface,
-} from 'class-validator';
+} from 'class-validator'
 
 @ValidatorConstraint({ name: 'isFutureDate', async: false })
 export class IsFutureDateConstraint implements ValidatorConstraintInterface {
   validate(value: string): boolean {
-    const date = new Date(value);
-    return !Number.isNaN(date.getTime()) && date.getTime() > Date.now();
+    const date = new Date(value)
+    return !Number.isNaN(date.getTime()) && date.getTime() > Date.now()
   }
 
   defaultMessage(): string {
-    return 'deadline must be in the future';
+    return 'deadline must be in the future'
   }
 }
 
@@ -27,7 +27,7 @@ export class CreateDealDto {
     format: 'uuid',
   })
   @IsUUID()
-  activityId: string;
+  activityId: string
 
   @ApiProperty({
     description: 'Expected number of students',
@@ -35,7 +35,7 @@ export class CreateDealDto {
   })
   @IsInt()
   @Min(1)
-  studentsCount: number;
+  studentsCount: number
 
   @ApiProperty({
     description: 'Bidding deadline (ISO date)',
@@ -43,5 +43,5 @@ export class CreateDealDto {
   })
   @IsDateString()
   @Validate(IsFutureDateConstraint)
-  deadline: string;
+  deadline: string
 }

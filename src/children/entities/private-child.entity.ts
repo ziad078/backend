@@ -9,56 +9,56 @@ import {
   UpdateDateColumn,
   JoinColumn,
   Index,
-} from 'typeorm';
-import { Gender } from 'src/common/enums/gender.enum';
-import { User } from 'src/users/entities/user.entity';
-import { ParentProfile } from 'src/users/entities/parent-profile.entity';
-import { ChildProfile } from './child-profile.entity';
-import { EvaluationSlot } from 'src/evaluations/entities/evaluation-slot.entity';
+} from 'typeorm'
+import { Gender } from 'src/common/enums/gender.enum'
+import { User } from 'src/users/entities/user.entity'
+import { ParentProfile } from 'src/users/entities/parent-profile.entity'
+import { ChildProfile } from './child-profile.entity'
+import { EvaluationSlot } from 'src/evaluations/entities/evaluation-slot.entity'
 
 @Entity('private_children')
 export class PrivateChild {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column()
-  name: string;
+  name: string
 
   @Column({ type: 'date' })
-  birthDate: Date;
+  birthDate: Date
 
   @Column({ type: 'enum', enum: Gender })
-  gender: Gender;
+  gender: Gender
 
   @Index()
   @Column({ type: 'uuid' })
-  createdById: string;
+  createdById: string
 
   @ManyToOne(() => User, (user) => user.privateChildren, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'createdById' })
-  createdBy: User;
+  createdBy: User
 
   @Index()
   @Column({ type: 'uuid' })
-  parentId: string;
+  parentId: string
 
   @ManyToOne(() => ParentProfile, (profile) => profile.privateChildren, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'parentId' })
-  parent: ParentProfile;
+  parent: ParentProfile
 
   @OneToOne(() => ChildProfile, (profile) => profile.privateChild)
-  profile: ChildProfile;
+  profile: ChildProfile
 
   @OneToMany(() => EvaluationSlot, (a) => a.privateChild)
-  slots: EvaluationSlot[];
+  slots: EvaluationSlot[]
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt: Date
 }

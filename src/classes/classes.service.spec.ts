@@ -1,14 +1,14 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { ClassesService } from './classes.service';
-import { Class } from './entities/class.entity';
-import { Teacher } from 'src/users/entities/teacher.entity';
-import { GradesService } from 'src/grades/grades.service';
-import { ChildrenService } from 'src/children/children.service';
-import { OrganizationsService } from 'src/organizations/organizations.service';
+import { Test, TestingModule } from '@nestjs/testing'
+import { getRepositoryToken } from '@nestjs/typeorm'
+import { ClassesService } from './classes.service'
+import { Class } from './entities/class.entity'
+import { Teacher } from 'src/users/entities/teacher.entity'
+import { GradesService } from 'src/grades/grades.service'
+import { ChildrenService } from 'src/children/children.service'
+import { OrganizationsService } from 'src/organizations/organizations.service'
 
 describe('ClassesService', () => {
-  let service: ClassesService;
+  let service: ClassesService
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -20,12 +20,12 @@ describe('ClassesService', () => {
         { provide: ChildrenService, useValue: {} },
         { provide: OrganizationsService, useValue: {} },
       ],
-    }).compile();
+    }).compile()
 
-    service = module.get(ClassesService);
-  });
+    service = module.get(ClassesService)
+  })
 
   it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-});
+    expect(service).toBeDefined()
+  })
+})

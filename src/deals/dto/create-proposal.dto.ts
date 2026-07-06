@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsPositive } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger'
+import { IsNumber, IsPositive } from 'class-validator'
 
 export class CreateProposalDto {
   @ApiProperty({
@@ -9,5 +9,5 @@ export class CreateProposalDto {
   })
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
-  price: number;
+  price: number
 }

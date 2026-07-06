@@ -1,6 +1,6 @@
-import type { Class } from 'src/classes/entities/class.entity';
-import { Organization } from 'src/organizations/entities/organization.entity';
-import { User } from 'src/users/entities/user.entity';
+import type { Class } from 'src/classes/entities/class.entity'
+import { Organization } from 'src/organizations/entities/organization.entity'
+import { User } from 'src/users/entities/user.entity'
 import {
   PrimaryGeneratedColumn,
   OneToOne,
@@ -9,34 +9,34 @@ import {
   OneToMany,
   Column,
   Entity,
-} from 'typeorm';
+} from 'typeorm'
 
 @Entity('teachers')
 export class Teacher {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column()
-  userId: string;
+  userId: string
 
   @Column()
-  orgId: string;
+  orgId: string
 
   @OneToOne(() => User, (user) => user.teacher, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user: User
 
   @ManyToOne(() => Organization, (org) => org.teachers, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'orgId' })
-  organization: Organization;
+  organization: Organization
 
   @OneToMany('Class', 'teacher')
-  classes: Class[];
+  classes: Class[]
 
   @Column()
-  jobTitle: string;
+  jobTitle: string
 }

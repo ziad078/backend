@@ -1,5 +1,5 @@
-import { BaseGradeResponseDto } from './base-grade-response.dto';
+import { BaseGradeResponseDto } from './base-grade-response.dto'
 
 export interface AdminGradeResponseDto extends BaseGradeResponseDto {
-  organizationName: string;
+  organizationName: string
 }

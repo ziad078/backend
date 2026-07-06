@@ -8,12 +8,12 @@ import {
   JoinColumn,
   Index,
   Unique,
-} from 'typeorm';
-import { ParentProfile } from './parent-profile.entity';
-import { Organization } from 'src/organizations/entities/organization.entity';
-import { ParentOrganizationStatus } from '../enums/parent-organization-status.enum';
-import { ParentOrganizationSource } from '../enums/parent-organization-source.enum';
-import { User } from './user.entity';
+} from 'typeorm'
+import { ParentProfile } from './parent-profile.entity'
+import { Organization } from 'src/organizations/entities/organization.entity'
+import { ParentOrganizationStatus } from '../enums/parent-organization-status.enum'
+import { ParentOrganizationSource } from '../enums/parent-organization-source.enum'
+import { User } from './user.entity'
 
 @Entity('parent_organizations')
 @Unique('uq_parent_organization', ['parentId', 'organizationId'])
@@ -21,59 +21,59 @@ import { User } from './user.entity';
 @Index('idx_org_parents', ['organizationId'])
 export class ParentOrganization {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column({ type: 'uuid' })
-  parentId: string;
+  parentId: string
 
   @ManyToOne(() => ParentProfile, (p) => p.organizationLinks, {
     onDelete: 'CASCADE',
     eager: false,
   })
   @JoinColumn({ name: 'parentId' })
-  parent: ParentProfile;
+  parent: ParentProfile
 
   @Column({ type: 'uuid' })
-  organizationId: string;
+  organizationId: string
 
   @ManyToOne(() => Organization, {
     onDelete: 'CASCADE',
     eager: false,
   })
   @JoinColumn({ name: 'organizationId' })
-  organization: Organization;
+  organization: Organization
 
   @Column({
     type: 'enum',
     enum: ParentOrganizationStatus,
     default: ParentOrganizationStatus.ACTIVE,
   })
-  status: ParentOrganizationStatus;
+  status: ParentOrganizationStatus
 
   @Column({
     type: 'enum',
     enum: ParentOrganizationSource,
     nullable: true,
   })
-  source: ParentOrganizationSource | null;
+  source: ParentOrganizationSource | null
 
   @Index()
   @Column({ type: 'uuid', nullable: true })
-  indexedById: string;
+  indexedById: string
 
   @ManyToOne(() => User, (user) => user.parentOrganization, {
     // onDelete: 'CASCADE',
     nullable: true,
   })
   @JoinColumn({ name: 'indexedById' })
-  indexedBy: User;
+  indexedBy: User
 
   @CreateDateColumn()
-  indexedAt: Date;
+  indexedAt: Date
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt: Date
 
   @Column({ type: 'timestamp', nullable: true })
-  lastActivityAt: Date;
+  lastActivityAt: Date
 }

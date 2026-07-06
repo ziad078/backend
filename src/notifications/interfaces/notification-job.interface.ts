@@ -1,11 +1,11 @@
-import { NotificationDelivery } from '../enums/notification-delivery.enum';
+import { NotificationDelivery } from '../enums/notification-delivery.enum'
 
 export interface NotificationSendJobPayload {
-  delivery: NotificationDelivery;
-  userId: string;
-  email?: string;
-  title: string;
-  message: string;
-  type?: string;
-  metadata?: Record<string, unknown> | null;
+  delivery: NotificationDelivery
+  userId: string
+  email?: string
+  title: string
+  message: string
+  type?: string
+  metadata?: Record<string, unknown> | null
 }

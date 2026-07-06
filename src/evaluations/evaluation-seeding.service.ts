@@ -1,46 +1,46 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Evaluation } from './entities/evaluation.entity';
-import { EvaluationAttempt } from './entities/evaluation-attempt.entity';
-import { EvaluationDimension } from './entities/evaluation-dimension.entity';
-import { EvaluationQuestion } from './entities/evaluation-question.entity';
-import { EvaluationQuestionAnswer } from './entities/evaluation-question-answer.entity';
-import { EvaluationType } from './enums/evaluation-type.enum';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { Evaluation } from './entities/evaluation.entity'
+import { EvaluationAttempt } from './entities/evaluation-attempt.entity'
+import { EvaluationDimension } from './entities/evaluation-dimension.entity'
+import { EvaluationQuestion } from './entities/evaluation-question.entity'
+import { EvaluationQuestionAnswer } from './entities/evaluation-question-answer.entity'
+import { EvaluationType } from './enums/evaluation-type.enum'
 
 type AnswerSeed = {
-  text: string;
-  scoreValue: number;
-  code?: string;
-};
+  text: string
+  scoreValue: number
+  code?: string
+}
 
 type QuestionSeed = {
-  content: string;
-  dimensionCode: string;
-  answers?: AnswerSeed[];
-};
+  content: string
+  dimensionCode: string
+  answers?: AnswerSeed[]
+}
 
 type DimensionSeed = {
-  name: string;
-  code: string;
-  minScore: number;
-  maxScore: number;
-  interpretationRules?: Record<string, unknown>;
-};
+  name: string
+  code: string
+  minScore: number
+  maxScore: number
+  interpretationRules?: Record<string, unknown>
+}
 
 type EvaluationSeed = {
-  type: EvaluationType;
-  title: string;
-  ageFrom: number | null;
-  ageTo: number | null;
-  evaluatorTypes: string[];
-  dimensions: DimensionSeed[];
-  questions: QuestionSeed[];
-};
+  type: EvaluationType
+  title: string
+  ageFrom: number | null
+  ageTo: number | null
+  evaluatorTypes: string[]
+  dimensions: DimensionSeed[]
+  questions: QuestionSeed[]
+}
 
 @Injectable()
 export class EvaluationSeedingService implements OnModuleInit {
-  private readonly logger = new Logger(EvaluationSeedingService.name);
+  private readonly logger = new Logger(EvaluationSeedingService.name)
 
   constructor(
     @InjectRepository(Evaluation)
@@ -56,25 +56,25 @@ export class EvaluationSeedingService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.seedEvaluations();
+    await this.seedEvaluations()
   }
 
   private async seedEvaluations() {
-    this.logger.log('Starting evaluation seeding...');
-    await this.seedEvaluation(this.multipleIntelligencesSeed());
-    await this.seedEvaluation(this.prideSeed());
-    await this.seedEvaluation(this.renzulliSeed());
-    await this.seedEvaluation(this.hollandSeed());
-    await this.seedEvaluation(this.learningStylesSeed());
-    await this.seedEvaluation(this.torranceSeed());
-    await this.removeDeprecatedPreschoolGiftednessSeed();
-    this.logger.log('Evaluation seeding complete!');
+    this.logger.log('Starting evaluation seeding...')
+    await this.seedEvaluation(this.multipleIntelligencesSeed())
+    await this.seedEvaluation(this.prideSeed())
+    await this.seedEvaluation(this.renzulliSeed())
+    await this.seedEvaluation(this.hollandSeed())
+    await this.seedEvaluation(this.learningStylesSeed())
+    await this.seedEvaluation(this.torranceSeed())
+    await this.removeDeprecatedPreschoolGiftednessSeed()
+    this.logger.log('Evaluation seeding complete!')
   }
 
   private async seedEvaluation(seed: EvaluationSeed) {
     let evaluation = await this.evaluationRepo.findOne({
       where: { type: seed.type },
-    });
+    })
 
     if (!evaluation) {
       evaluation = await this.evaluationRepo.save(
@@ -86,30 +86,30 @@ export class EvaluationSeedingService implements OnModuleInit {
           ageTo: seed.ageTo,
           evaluatorTypes: seed.evaluatorTypes,
         }),
-      );
+      )
     } else {
-      evaluation.title = seed.title;
-      evaluation.ageFrom = seed.ageFrom;
-      evaluation.ageTo = seed.ageTo;
-      evaluation.evaluatorTypes = seed.evaluatorTypes;
-      await this.evaluationRepo.save(evaluation);
+      evaluation.title = seed.title
+      evaluation.ageFrom = seed.ageFrom
+      evaluation.ageTo = seed.ageTo
+      evaluation.evaluatorTypes = seed.evaluatorTypes
+      await this.evaluationRepo.save(evaluation)
     }
 
     const attemptsCount = await this.attemptRepo.count({
       where: { evaluationId: evaluation.id },
-    });
+    })
 
     if (attemptsCount > 0) {
       this.logger.warn(
         `${seed.title} has ${attemptsCount} attempts; metadata updated, question bank left unchanged`,
-      );
-      return;
+      )
+      return
     }
 
-    await this.questionRepo.delete({ evaluationId: evaluation.id });
-    await this.dimensionRepo.delete({ evaluationId: evaluation.id });
+    await this.questionRepo.delete({ evaluationId: evaluation.id })
+    await this.dimensionRepo.delete({ evaluationId: evaluation.id })
 
-    const dimensions = new Map<string, EvaluationDimension>();
+    const dimensions = new Map<string, EvaluationDimension>()
 
     for (const dimensionSeed of seed.dimensions) {
       const dimension = await this.dimensionRepo.save(
@@ -121,16 +121,14 @@ export class EvaluationSeedingService implements OnModuleInit {
           maxScore: dimensionSeed.maxScore,
           interpretationRules: dimensionSeed.interpretationRules ?? null,
         }),
-      );
-      dimensions.set(dimension.code, dimension);
+      )
+      dimensions.set(dimension.code, dimension)
     }
 
     for (const [index, questionSeed] of seed.questions.entries()) {
-      const dimension = dimensions.get(questionSeed.dimensionCode);
+      const dimension = dimensions.get(questionSeed.dimensionCode)
       if (!dimension) {
-        throw new Error(
-          `Missing dimension "${questionSeed.dimensionCode}" for ${seed.title}`,
-        );
+        throw new Error(`Missing dimension "${questionSeed.dimensionCode}" for ${seed.title}`)
       }
 
       const question = await this.questionRepo.save(
@@ -140,49 +138,46 @@ export class EvaluationSeedingService implements OnModuleInit {
           content: questionSeed.content,
           order: index + 1,
         }),
-      );
+      )
 
       await this.answerRepo.save(
-        (questionSeed.answers ?? this.likert5Answers()).map(
-          (answerSeed, answerIndex) =>
-            this.answerRepo.create({
-              questionId: question.id,
-              text: answerSeed.text,
-              scoreValue: answerSeed.scoreValue,
-              code: answerSeed.code ?? null,
-              order: answerIndex + 1,
-            }),
+        (questionSeed.answers ?? this.likert5Answers()).map((answerSeed, answerIndex) =>
+          this.answerRepo.create({
+            questionId: question.id,
+            text: answerSeed.text,
+            scoreValue: answerSeed.scoreValue,
+            code: answerSeed.code ?? null,
+            order: answerIndex + 1,
+          }),
         ),
-      );
+      )
     }
 
     this.logger.log(
       `Seeded ${seed.title}: ${seed.dimensions.length} dimensions, ${seed.questions.length} questions`,
-    );
+    )
   }
 
   private async removeDeprecatedPreschoolGiftednessSeed() {
     const existing = await this.evaluationRepo.findOne({
       where: { type: EvaluationType.PRESCHOOL_GIFTEDNESS },
-    });
+    })
 
-    if (!existing) return;
+    if (!existing) return
 
     const attemptsCount = await this.attemptRepo.count({
       where: { evaluationId: existing.id },
-    });
+    })
 
     if (attemptsCount > 0) {
-      this.logger.warn(
-        'Deprecated preschool giftedness seed has attempts; leaving it in place',
-      );
-      return;
+      this.logger.warn('Deprecated preschool giftedness seed has attempts; leaving it in place')
+      return
     }
 
-    await this.evaluationRepo.delete(existing.id);
+    await this.evaluationRepo.delete(existing.id)
     this.logger.log(
       'Removed deprecated preschool giftedness seed; Pride is the preschool giftedness scale',
-    );
+    )
   }
 
   private likert4Answers(): AnswerSeed[] {
@@ -191,7 +186,7 @@ export class EvaluationSeedingService implements OnModuleInit {
       { text: 'نادرا', scoreValue: 2, code: 'rarely' },
       { text: 'غالبا', scoreValue: 3, code: 'often' },
       { text: 'دائما', scoreValue: 4, code: 'always' },
-    ];
+    ]
   }
 
   private likert5Answers(): AnswerSeed[] {
@@ -201,21 +196,21 @@ export class EvaluationSeedingService implements OnModuleInit {
       { text: 'متوسط', scoreValue: 3, code: 'three' },
       { text: 'مرتفع', scoreValue: 4, code: 'four' },
       { text: 'أعلى أداء', scoreValue: 5, code: 'five' },
-    ];
+    ]
   }
 
   private yesNoAnswers(): AnswerSeed[] {
     return [
       { text: 'نعم', scoreValue: 2, code: 'yes' },
       { text: 'لا', scoreValue: 1, code: 'no' },
-    ];
+    ]
   }
 
   private bipolarAnswers(positive: string, negative: string): AnswerSeed[] {
     return [
       { text: positive, scoreValue: 1, code: 'positive' },
       { text: negative, scoreValue: -1, code: 'negative' },
-    ];
+    ]
   }
 
   private multipleIntelligencesSeed(): EvaluationSeed {
@@ -253,7 +248,7 @@ export class EvaluationSeedingService implements OnModuleInit {
         minScore: 3,
         maxScore: 12,
       },
-    ];
+    ]
 
     const byDimension: Record<string, string[]> = {
       linguistic: [
@@ -296,7 +291,7 @@ export class EvaluationSeedingService implements OnModuleInit {
         'يفضل طفلي أنشطة مثل الزراعة أو المشي لمسافات طويلة أو استكشاف الطبيعة ورعاية الحيوانات',
         'يسأل طفلي عن البيئة ويستمتع بالتعلم عن الطبيعة',
       ],
-    };
+    }
 
     return {
       type: EvaluationType.MULTIPLE_INTELLIGENCES,
@@ -312,7 +307,7 @@ export class EvaluationSeedingService implements OnModuleInit {
           answers: this.likert4Answers(),
         })),
       ),
-    };
+    }
   }
 
   private prideSeed(): EvaluationSeed {
@@ -347,7 +342,7 @@ export class EvaluationSeedingService implements OnModuleInit {
         minScore: 8,
         maxScore: 40,
       },
-    ];
+    ]
 
     const dimensionByQuestion = this.mapQuestionNumbers({
       multiple_interests: [1, 3, 6, 11, 16, 18, 20, 24, 27, 28, 39, 43, 45, 49],
@@ -355,7 +350,7 @@ export class EvaluationSeedingService implements OnModuleInit {
       imaginative_thinking: [8, 9, 10, 13, 19, 22, 26, 40, 47, 50],
       independent_thinking: [4, 5, 12, 17, 29, 30, 32, 33, 36, 37, 38, 42, 46],
       originality: [14, 15, 25, 31, 35, 41, 44, 48],
-    });
+    })
 
     const questions = [
       'يهتم طفلي بالأشياء من حوله لفترة طويلة.',
@@ -408,7 +403,7 @@ export class EvaluationSeedingService implements OnModuleInit {
       'يشير طفلي إلى الأشياء غير العادية من حوله غالبا.',
       'يحب طفلي قصص الحيوانات.',
       'يبدو أن طفلي قادر على فهم الأشياء من وجهة نظر الآخرين.',
-    ];
+    ]
 
     return {
       type: EvaluationType.PRIDE,
@@ -422,7 +417,7 @@ export class EvaluationSeedingService implements OnModuleInit {
         dimensionCode: dimensionByQuestion.get(index + 1)!,
         answers: this.likert5Answers(),
       })),
-    };
+    }
   }
 
   private renzulliSeed(): EvaluationSeed {
@@ -451,7 +446,7 @@ export class EvaluationSeedingService implements OnModuleInit {
         minScore: 8,
         maxScore: 32,
       },
-    ];
+    ]
 
     const byDimension: Record<string, string[]> = {
       creativity: [
@@ -498,7 +493,7 @@ export class EvaluationSeedingService implements OnModuleInit {
         'أحب القراءة والمطالعة لمواضيع تفوق مستوى سني.',
         'أقيس وأحلل الأمور المعقدة.',
       ],
-    };
+    }
 
     return {
       type: EvaluationType.RENZULLI,
@@ -514,7 +509,7 @@ export class EvaluationSeedingService implements OnModuleInit {
           answers: this.likert4Answers(),
         })),
       ),
-    };
+    }
   }
 
   private hollandSeed(): EvaluationSeed {
@@ -545,7 +540,7 @@ export class EvaluationSeedingService implements OnModuleInit {
         maxScore: 28,
       },
       { name: 'المقياس الفني', code: 'artistic', minScore: 14, maxScore: 28 },
-    ];
+    ]
 
     const dimensionByQuestion = this.mapQuestionNumbers({
       realistic: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 17],
@@ -554,7 +549,7 @@ export class EvaluationSeedingService implements OnModuleInit {
       conventional: [84, 83, 68, 29, 28, 26, 25, 24, 23, 22, 21, 20, 19, 18],
       enterprising: [67, 66, 65, 64, 63, 62, 61, 60, 58, 57, 32, 31, 30, 27],
       artistic: [81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 59],
-    });
+    })
 
     const jobs = [
       'ميكانيكي سيارات',
@@ -641,7 +636,7 @@ export class EvaluationSeedingService implements OnModuleInit {
       'واعظ ديني',
       'كاتب ديوان',
       'سكرتير',
-    ];
+    ]
 
     return {
       type: EvaluationType.HOLLAND,
@@ -655,7 +650,7 @@ export class EvaluationSeedingService implements OnModuleInit {
         dimensionCode: dimensionByQuestion.get(index + 1)!,
         answers: this.yesNoAnswers(),
       })),
-    };
+    }
   }
 
   private learningStylesSeed(): EvaluationSeed {
@@ -700,17 +695,13 @@ export class EvaluationSeedingService implements OnModuleInit {
           negativePole: 'الحدسي',
         },
       },
-    ];
+    ]
 
     const groups = [
       {
         dimensionCode: 'visual_verbal',
         pairs: [
-          [
-            'عندما أفكر في ما فعلت بالأمس، يكون ذلك من خلال',
-            'الصور',
-            'الكلمات',
-          ],
+          ['عندما أفكر في ما فعلت بالأمس، يكون ذلك من خلال', 'الصور', 'الكلمات'],
           [
             'أفضل الحصول على المعلومات الجديدة من خلال',
             'صور أو مخططات أو رسوم بيانية أو خرائط',
@@ -728,38 +719,22 @@ export class EvaluationSeedingService implements OnModuleInit {
           ],
           ['أتذكر أفضل', 'ما أرى', 'ما أسمع'],
           ['أفضل أن أحصل على وصف مكان ما من خلال', 'خريطة', 'تعليمات مكتوبة'],
-          [
-            'عندما أرى مخططا أو رسما بيانيا في المحاضرة، أتذكر',
-            'الصورة',
-            'ما قاله المحاضر حوله',
-          ],
+          ['عندما أرى مخططا أو رسما بيانيا في المحاضرة، أتذكر', 'الصورة', 'ما قاله المحاضر حوله'],
           [
             'عندما يقوم شخص ما بعرض بيانات علي فإنني أفضل',
             'مخططات أو رسوم بيانية',
             'نصا يلخص النتائج',
           ],
-          [
-            'عندما أقابل أشخاصا في حفلة، أتذكرهم',
-            'بما يناسبهم',
-            'بما قالوا عن أنفسهم',
-          ],
+          ['عندما أقابل أشخاصا في حفلة، أتذكرهم', 'بما يناسبهم', 'بما قالوا عن أنفسهم'],
           ['للتسلية أو الترفيه أفضل', 'مشاهدة التلفزيون', 'قراءة كتاب'],
-          [
-            'أميل إلى تصوير الأماكن',
-            'إلى حد ما بسهولة ودقة',
-            'بصعوبة وبدون تفاصيل كثيرة',
-          ],
+          ['أميل إلى تصوير الأماكن', 'إلى حد ما بسهولة ودقة', 'بصعوبة وبدون تفاصيل كثيرة'],
         ],
       },
       {
         dimensionCode: 'active_reflective',
         pairs: [
           ['أفهم الأشياء أفضل بعد أن', 'أقوم بتنفيذها', 'أفكر فيها'],
-          [
-            'عندما أتعلم شيئا جديدا يساعدني ذلك في',
-            'التحدث عنه',
-            'التفكير فيه',
-          ],
+          ['عندما أتعلم شيئا جديدا يساعدني ذلك في', 'التحدث عنه', 'التفكير فيه'],
           [
             'في مجموعات العمل الدراسية لمادة صعبة، أهتم أكثر بـ',
             'الأمثلة المساعدة',
@@ -777,11 +752,7 @@ export class EvaluationSeedingService implements OnModuleInit {
           ],
           ['أفضل أن أدرس من خلال', 'مجموعة', 'منفردا'],
           ['أفضل أولا', 'المحاولة في الأشياء', 'التفكير في كيفية عملها'],
-          [
-            'أفكر بسهولة في',
-            'الأشياء التي عملتها',
-            'الأشياء التي فكرت فيها كثيرا',
-          ],
+          ['أفكر بسهولة في', 'الأشياء التي عملتها', 'الأشياء التي فكرت فيها كثيرا'],
           [
             'عندما أعمل في مشروع جماعي فإنني أريد أن أبدأ',
             'بالعصف الذهني الجماعي حيث يساهم كل فرد بأفكاره',
@@ -803,11 +774,7 @@ export class EvaluationSeedingService implements OnModuleInit {
             'فهم تفاصيل الموضوع لأن البناء العام ربما يكون غامضا',
             'فهم البناء العام لأن التفاصيل ربما تكون غامضة',
           ],
-          [
-            'أبدأ بفهم',
-            'جميع الأجزاء حتى أفهم الشيء بالكامل',
-            'الشيء بالكامل حتى أفهم الأجزاء',
-          ],
+          ['أبدأ بفهم', 'جميع الأجزاء حتى أفهم الشيء بالكامل', 'الشيء بالكامل حتى أفهم الأجزاء'],
           [
             'عندما أحل المشكلات الرياضية',
             'عادة ما أعمل على الوصول إلى الحل خطوة خطوة في الوقت المحدد',
@@ -823,11 +790,7 @@ export class EvaluationSeedingService implements OnModuleInit {
             'يعرض المادة في خطوات متسلسلة واضحة',
             'يعطيني صورة عامة ويربط بين المادة والموضوعات الأخرى',
           ],
-          [
-            'أتعلم',
-            'بسرعة مناسبة إذا كانت الدراسة صعبة',
-            'بداية بسرعة ثم أرتبك فجأة ثم أفهم',
-          ],
+          ['أتعلم', 'بسرعة مناسبة إذا كانت الدراسة صعبة', 'بداية بسرعة ثم أرتبك فجأة ثم أفهم'],
           [
             'لفهم كمية من المعلومات أميل إلى',
             'التركيز على التفاصيل وأهمل الصورة العامة',
@@ -871,11 +834,7 @@ export class EvaluationSeedingService implements OnModuleInit {
             'الشيء الذي يعطيني أفكارا جديدة للتفكير',
           ],
           ['أفضل الأفكار', 'الواقعية', 'النظرية'],
-          [
-            'من الأكثر أهمية لي أن',
-            'أحرص على تفاصيل أعمالي',
-            'أكون مبدعا في تنفيذ أعمالي',
-          ],
+          ['من الأكثر أهمية لي أن', 'أحرص على تفاصيل أعمالي', 'أكون مبدعا في تنفيذ أعمالي'],
           [
             'عندما أقرأ للاستمتاع أميل إلى الكتاب الذين',
             'يقولون بوضوح ما يعنون',
@@ -899,7 +858,7 @@ export class EvaluationSeedingService implements OnModuleInit {
           ],
         ],
       },
-    ];
+    ]
 
     return {
       type: EvaluationType.LEARNING_STYLES,
@@ -915,7 +874,7 @@ export class EvaluationSeedingService implements OnModuleInit {
           answers: this.bipolarAnswers(positive, negative),
         })),
       ),
-    };
+    }
   }
 
   private torranceSeed(): EvaluationSeed {
@@ -927,18 +886,16 @@ export class EvaluationSeedingService implements OnModuleInit {
       evaluatorTypes: ['teacher', 'specialist'],
       dimensions: [],
       questions: [],
-    };
+    }
   }
 
-  private mapQuestionNumbers(
-    source: Record<string, number[]>,
-  ): Map<number, string> {
-    const map = new Map<number, string>();
+  private mapQuestionNumbers(source: Record<string, number[]>): Map<number, string> {
+    const map = new Map<number, string>()
     for (const [dimensionCode, numbers] of Object.entries(source)) {
       for (const questionNumber of numbers) {
-        map.set(questionNumber, dimensionCode);
+        map.set(questionNumber, dimensionCode)
       }
     }
-    return map;
+    return map
   }
 }

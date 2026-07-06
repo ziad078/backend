@@ -3,31 +3,31 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
-import { UserRole } from 'src/common/enums/role.enum';
-import { CreateEvaluationDto } from './dto/create-evaluation.dto';
-import { SaveProgressDto } from './dto/save-progress.dto';
-import { StartEvaluationDto } from './dto/start-evaluation.dto';
-import { SubmitAttemptDto } from './dto/submit-attempt.dto';
-import { EvaluationAttempt } from './entities/evaluation-attempt.entity';
-import { EvaluationDimension } from './entities/evaluation-dimension.entity';
-import { EvaluationQuestionAnswer } from './entities/evaluation-question-answer.entity';
-import { EvaluationQuestion } from './entities/evaluation-question.entity';
-import { Evaluation } from './entities/evaluation.entity';
-import { EvaluationAttemptStatus } from './enums/evaluation-attempt-status.enum';
+} from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { DataSource, Repository } from 'typeorm'
+import { UserRole } from 'src/common/enums/role.enum'
+import { CreateEvaluationDto } from './dto/create-evaluation.dto'
+import { SaveProgressDto } from './dto/save-progress.dto'
+import { StartEvaluationDto } from './dto/start-evaluation.dto'
+import { SubmitAttemptDto } from './dto/submit-attempt.dto'
+import { EvaluationAttempt } from './entities/evaluation-attempt.entity'
+import { EvaluationDimension } from './entities/evaluation-dimension.entity'
+import { EvaluationQuestionAnswer } from './entities/evaluation-question-answer.entity'
+import { EvaluationQuestion } from './entities/evaluation-question.entity'
+import { Evaluation } from './entities/evaluation.entity'
+import { EvaluationAttemptStatus } from './enums/evaluation-attempt-status.enum'
 import {
   EvaluationAccessPolicy,
   EvaluationActor,
-} from './services/evaluation-access-policy.service';
-import { EvaluationApprovalService } from './services/evaluation-approval.service';
-import { EvaluationAttemptLifecycleService } from './services/evaluation-attempt-lifecycle.service';
-import { EvaluationProgressService } from './services/evaluation-progress.service';
-import { EvaluationSubmissionService } from './services/evaluation-submission.service';
-import { ParentProfilesService } from 'src/users/services/parent-profiles.service';
-import { OrganizationChild } from 'src/children/entities/organization-child.entity';
-import { PrivateChild } from 'src/children/entities/private-child.entity';
+} from './services/evaluation-access-policy.service'
+import { EvaluationApprovalService } from './services/evaluation-approval.service'
+import { EvaluationAttemptLifecycleService } from './services/evaluation-attempt-lifecycle.service'
+import { EvaluationProgressService } from './services/evaluation-progress.service'
+import { EvaluationSubmissionService } from './services/evaluation-submission.service'
+import { ParentProfilesService } from 'src/users/services/parent-profiles.service'
+import { OrganizationChild } from 'src/children/entities/organization-child.entity'
+import { PrivateChild } from 'src/children/entities/private-child.entity'
 
 @Injectable()
 export class EvaluationsService {
@@ -61,20 +61,16 @@ export class EvaluationsService {
   ) {}
 
   async createEvaluation(dto: CreateEvaluationDto, actor: EvaluationActor) {
-    this.access.assertHasRole(actor, [UserRole.ADMIN]);
+    this.access.assertHasRole(actor, [UserRole.ADMIN])
 
     return this.dataSource.transaction(async (manager) => {
-      const evaluationRepo = manager.getRepository(Evaluation);
-      const dimensionRepo = manager.getRepository(EvaluationDimension);
-      const questionRepo = manager.getRepository(EvaluationQuestion);
+      const evaluationRepo = manager.getRepository(Evaluation)
+      const dimensionRepo = manager.getRepository(EvaluationDimension)
+      const questionRepo = manager.getRepository(EvaluationQuestion)
 
-      const duplicatedCodes = this.findDuplicates(
-        dto.dimensions.map((dimension) => dimension.code),
-      );
+      const duplicatedCodes = this.findDuplicates(dto.dimensions.map((dimension) => dimension.code))
       if (duplicatedCodes.length > 0) {
-        throw new BadRequestException(
-          `Duplicate dimension codes: ${duplicatedCodes.join(', ')}`,
-        );
+        throw new BadRequestException(`Duplicate dimension codes: ${duplicatedCodes.join(', ')}`)
       }
 
       const evaluation = await evaluationRepo.save(
@@ -86,7 +82,7 @@ export class EvaluationsService {
           ageTo: dto.ageTo ?? null,
           evaluatorTypes: dto.evaluatorTypes ?? [],
         }),
-      );
+      )
 
       const dimensions = await dimensionRepo.save(
         dto.dimensions.map((dimension) =>
@@ -99,19 +95,15 @@ export class EvaluationsService {
             interpretationRules: dimension.interpretationRules ?? null,
           }),
         ),
-      );
+      )
 
-      const dimensionByCode = new Map(
-        dimensions.map((dimension) => [dimension.code, dimension]),
-      );
+      const dimensionByCode = new Map(dimensions.map((dimension) => [dimension.code, dimension]))
 
       for (const [index, questionDto] of dto.questions.entries()) {
-        const dimension = dimensionByCode.get(questionDto.dimensionCode);
+        const dimension = dimensionByCode.get(questionDto.dimensionCode)
 
         if (!dimension) {
-          throw new BadRequestException(
-            `Dimension code "${questionDto.dimensionCode}" not found`,
-          );
+          throw new BadRequestException(`Dimension code "${questionDto.dimensionCode}" not found`)
         }
 
         await questionRepo.save(
@@ -127,7 +119,7 @@ export class EvaluationsService {
               order: answerIndex + 1,
             })),
           }),
-        );
+        )
       }
 
       return evaluationRepo.findOne({
@@ -147,26 +139,23 @@ export class EvaluationsService {
             },
           },
         },
-      });
-    });
+      })
+    })
   }
 
   async getAllEvaluationsForAdmin(actor: EvaluationActor) {
-    this.access.assertHasRole(actor, [UserRole.ADMIN]);
+    this.access.assertHasRole(actor, [UserRole.ADMIN])
 
     return this.evalRepo.find({
       relations: {
         dimensions: true,
       },
       order: { title: 'ASC' },
-    });
+    })
   }
 
-  async getEvaluationDetailsForAdmin(
-    evaluationId: string,
-    actor: EvaluationActor,
-  ) {
-    this.access.assertHasRole(actor, [UserRole.ADMIN]);
+  async getEvaluationDetailsForAdmin(evaluationId: string, actor: EvaluationActor) {
+    this.access.assertHasRole(actor, [UserRole.ADMIN])
 
     const evaluation = await this.evalRepo.findOne({
       where: { id: evaluationId },
@@ -185,17 +174,17 @@ export class EvaluationsService {
           },
         },
       },
-    });
+    })
 
     if (!evaluation) {
-      throw new NotFoundException('Evaluation not found');
+      throw new NotFoundException('Evaluation not found')
     }
 
-    return evaluation;
+    return evaluation
   }
 
   async getEvaluationForm(evaluationId: string, actor: EvaluationActor) {
-    this.access.assertHasRole(actor, [UserRole.PARENT, UserRole.ADMIN]);
+    this.access.assertHasRole(actor, [UserRole.PARENT, UserRole.ADMIN])
 
     const evaluation = await this.evalRepo.findOne({
       where: { id: evaluationId },
@@ -214,10 +203,10 @@ export class EvaluationsService {
           },
         },
       },
-    });
+    })
 
     if (!evaluation) {
-      throw new NotFoundException('Evaluation not found');
+      throw new NotFoundException('Evaluation not found')
     }
 
     return {
@@ -249,29 +238,23 @@ export class EvaluationsService {
           order: answer.order,
         })),
       })),
-    };
+    }
   }
 
-  async getAvailableEvaluationsForChild(
-    childId: string,
-    actor: EvaluationActor,
-  ) {
-    this.access.assertHasRole(actor, [UserRole.PARENT]);
+  async getAvailableEvaluationsForChild(childId: string, actor: EvaluationActor) {
+    this.access.assertHasRole(actor, [UserRole.PARENT])
 
-    const parentProfile = await this.parentProfilesService.findByUserId(
-      actor.userId,
-    );
-    if (!parentProfile)
-      throw new ForbiddenException('Parent profile not found');
+    const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
+    if (!parentProfile) throw new ForbiddenException('Parent profile not found')
 
     // Try to find as private child first
     const privateChild = await this.privateChildrenRepository.findOne({
       where: { id: childId, parent: { id: parentProfile.id } },
       relations: { parent: true },
-    });
+    })
 
     if (privateChild) {
-      const age = this.calculateAge(privateChild.birthDate);
+      const age = this.calculateAge(privateChild.birthDate)
       const evaluations = await this.evalRepo
         .createQueryBuilder('evaluation')
         .where('(evaluation.ageFrom IS NULL OR evaluation.ageFrom <= :age)', {
@@ -281,22 +264,22 @@ export class EvaluationsService {
           age,
         })
         .orderBy('evaluation.title', 'ASC')
-        .getMany();
+        .getMany()
 
-      return { childId, age, evaluations };
+      return { childId, age, evaluations }
     }
 
     // Try organization child
     const orgChild = await this.organizationChildrenRepository.findOne({
       where: { id: childId, parent: { id: parentProfile.id } },
       relations: { parent: true, class: { organization: true } },
-    });
+    })
 
     if (!orgChild) {
-      throw new ForbiddenException('Child not found for this parent');
+      throw new ForbiddenException('Child not found for this parent')
     }
 
-    const age = this.calculateAge(orgChild.birthDate);
+    const age = this.calculateAge(orgChild.birthDate)
 
     const qb = this.evalRepo
       .createQueryBuilder('evaluation')
@@ -305,7 +288,7 @@ export class EvaluationsService {
       })
       .andWhere('(evaluation.ageTo IS NULL OR evaluation.ageTo >= :age)', {
         age,
-      });
+      })
 
     if (orgChild.class) {
       qb.andWhere(
@@ -313,50 +296,34 @@ export class EvaluationsService {
         {
           institutionId: orgChild.class.organization.id,
         },
-      );
+      )
     }
 
-    const evaluations = await qb.orderBy('evaluation.title', 'ASC').getMany();
+    const evaluations = await qb.orderBy('evaluation.title', 'ASC').getMany()
 
-    return { childId, age, evaluations };
+    return { childId, age, evaluations }
   }
 
-  startEvaluation(
-    evaluationId: string,
-    dto: StartEvaluationDto,
-    actor: EvaluationActor,
-  ) {
-    return this.lifecycle.startEvaluation(evaluationId, dto, actor);
+  startEvaluation(evaluationId: string, dto: StartEvaluationDto, actor: EvaluationActor) {
+    return this.lifecycle.startEvaluation(evaluationId, dto, actor)
   }
 
-  async saveProgress(
-    attemptId: string,
-    dto: SaveProgressDto,
-    actor: EvaluationActor,
-  ) {
-    const scopedActor = await this.withParentProfileId(actor);
-    await this.progress.saveProgress(attemptId, dto, scopedActor);
-    return this.getAttempt(attemptId, scopedActor);
+  async saveProgress(attemptId: string, dto: SaveProgressDto, actor: EvaluationActor) {
+    const scopedActor = await this.withParentProfileId(actor)
+    await this.progress.saveProgress(attemptId, dto, scopedActor)
+    return this.getAttempt(attemptId, scopedActor)
   }
 
-  async submitAttempt(
-    attemptId: string,
-    dto: SubmitAttemptDto,
-    actor: EvaluationActor,
-  ) {
-    return this.submissions.submitAttempt(
-      attemptId,
-      dto,
-      await this.withParentProfileId(actor),
-    );
+  async submitAttempt(attemptId: string, dto: SubmitAttemptDto, actor: EvaluationActor) {
+    return this.submissions.submitAttempt(attemptId, dto, await this.withParentProfileId(actor))
   }
 
   approveAttempt(attemptId: string, actor: EvaluationActor) {
-    return this.approvals.approveAttempt(attemptId, actor);
+    return this.approvals.approveAttempt(attemptId, actor)
   }
 
   async getAttempt(attemptId: string, actor: EvaluationActor) {
-    const scopedActor = await this.withParentProfileId(actor);
+    const scopedActor = await this.withParentProfileId(actor)
 
     let attempt = await this.attemptRepo.findOne({
       where: { id: attemptId },
@@ -380,14 +347,14 @@ export class EvaluationsService {
         privateChild: true,
         parent: true,
       },
-    });
+    })
 
-    if (!attempt) throw new NotFoundException('Attempt not found');
+    if (!attempt) throw new NotFoundException('Attempt not found')
 
-    this.access.assertCanReadAttempt(attempt, scopedActor);
+    this.access.assertCanReadAttempt(attempt, scopedActor)
 
     if (scopedActor.roles.includes(UserRole.PARENT)) {
-      await this.submissions.maybeAutoSubmitIfExpired(attemptId);
+      await this.submissions.maybeAutoSubmitIfExpired(attemptId)
       attempt = await this.attemptRepo.findOne({
         where: { id: attemptId },
         relations: {
@@ -410,30 +377,30 @@ export class EvaluationsService {
           privateChild: true,
           parent: true,
         },
-      });
-      if (!attempt) throw new NotFoundException('Attempt not found');
-      this.access.assertCanReadAttempt(attempt, scopedActor);
+      })
+      if (!attempt) throw new NotFoundException('Attempt not found')
+      this.access.assertCanReadAttempt(attempt, scopedActor)
     }
 
-    return attempt;
+    return attempt
   }
 
   async getAttemptsForAdmin(
     actor: EvaluationActor,
     filters: {
-      status?: EvaluationAttemptStatus;
-      evaluationId?: string;
-      childId?: string;
+      status?: EvaluationAttemptStatus
+      evaluationId?: string
+      childId?: string
     },
   ) {
-    this.access.assertHasRole(actor, [UserRole.ADMIN]);
+    this.access.assertHasRole(actor, [UserRole.ADMIN])
 
-    const where: any = {};
+    const where: any = {}
 
-    if (filters.status) where.status = filters.status;
-    if (filters.evaluationId) where.evaluationId = filters.evaluationId;
+    if (filters.status) where.status = filters.status
+    if (filters.evaluationId) where.evaluationId = filters.evaluationId
     if (filters.childId) {
-      where.organizationChildId = filters.childId;
+      where.organizationChildId = filters.childId
     }
 
     const [attempts, count] = await this.attemptRepo.findAndCount({
@@ -448,119 +415,106 @@ export class EvaluationsService {
       order: {
         startedAt: 'DESC',
       },
-    });
+    })
 
-    return { attempts, count };
+    return { attempts, count }
   }
 
   async getAttemptsForChild(childId: string, actor: EvaluationActor) {
-    const isAdmin = actor.roles.includes(UserRole.ADMIN);
-    const isParent = actor.roles.includes(UserRole.PARENT);
+    const isAdmin = actor.roles.includes(UserRole.ADMIN)
+    const isParent = actor.roles.includes(UserRole.PARENT)
 
     if (!isAdmin && !isParent) {
-      throw new ForbiddenException('Insufficient role');
+      throw new ForbiddenException('Insufficient role')
     }
 
     const parentProfile = isParent
       ? await this.parentProfilesService.findByUserId(actor.userId)
-      : null;
+      : null
 
-    if (isParent && !parentProfile)
-      throw new ForbiddenException('Parent profile not found');
+    if (isParent && !parentProfile) throw new ForbiddenException('Parent profile not found')
 
-    const parentProfileId =
-      isParent && parentProfile ? parentProfile.id : undefined;
+    const parentProfileId = isParent && parentProfile ? parentProfile.id : undefined
 
     // Try private child first
     const privateChild = await this.privateChildrenRepository.findOne({
-      where: isParent
-        ? { id: childId, parent: { id: parentProfileId } }
-        : { id: childId },
-    });
+      where: isParent ? { id: childId, parent: { id: parentProfileId } } : { id: childId },
+    })
 
     if (privateChild) {
-      const attemptWhere: any = { privateChildId: childId };
+      const attemptWhere: any = { privateChildId: childId }
       if (isParent) {
-        attemptWhere.parentId = parentProfileId;
+        attemptWhere.parentId = parentProfileId
       }
 
       const attempts = await this.attemptRepo.find({
         where: attemptWhere,
         relations: { evaluation: true, approval: true },
         order: { startedAt: 'DESC' },
-      });
+      })
 
-      return { attempts, count: attempts.length };
+      return { attempts, count: attempts.length }
     }
 
     // Try organization child
     const orgChild = await this.organizationChildrenRepository.findOne({
-      where: isParent
-        ? { id: childId, parent: { id: parentProfileId } }
-        : { id: childId },
-    });
+      where: isParent ? { id: childId, parent: { id: parentProfileId } } : { id: childId },
+    })
 
     if (!orgChild) {
-      throw new NotFoundException('Child not found');
+      throw new NotFoundException('Child not found')
     }
 
-    const attemptWhere: any = { organizationChildId: childId };
+    const attemptWhere: any = { organizationChildId: childId }
     if (isParent) {
-      attemptWhere.parentId = parentProfileId;
+      attemptWhere.parentId = parentProfileId
     }
 
     const attempts = await this.attemptRepo.find({
       where: attemptWhere,
       relations: { evaluation: true, approval: true },
       order: { startedAt: 'DESC' },
-    });
+    })
 
-    return { attempts, count: attempts.length };
+    return { attempts, count: attempts.length }
   }
 
   private calculateAge(birthDate: Date | string) {
-    const birth = new Date(birthDate);
-    const today = new Date();
+    const birth = new Date(birthDate)
+    const today = new Date()
 
-    let age = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
 
-    if (
-      monthDiff < 0 ||
-      (monthDiff === 0 && today.getDate() < birth.getDate())
-    ) {
-      age--;
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
     }
 
-    return age;
+    return age
   }
 
   private findDuplicates(values: string[]) {
-    const seen = new Set<string>();
-    const duplicates = new Set<string>();
+    const seen = new Set<string>()
+    const duplicates = new Set<string>()
 
     for (const value of values) {
-      if (seen.has(value)) duplicates.add(value);
-      seen.add(value);
+      if (seen.has(value)) duplicates.add(value)
+      seen.add(value)
     }
 
-    return [...duplicates];
+    return [...duplicates]
   }
 
-  private async withParentProfileId(
-    actor: EvaluationActor,
-  ): Promise<EvaluationActor> {
+  private async withParentProfileId(actor: EvaluationActor): Promise<EvaluationActor> {
     if (!actor.roles.includes(UserRole.PARENT) || actor.parentProfileId) {
-      return actor;
+      return actor
     }
 
-    const parentProfile = await this.parentProfilesService.findByUserId(
-      actor.userId,
-    );
+    const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
 
     return {
       ...actor,
       parentProfileId: parentProfile.id,
-    };
+    }
   }
 }

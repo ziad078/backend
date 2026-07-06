@@ -1,20 +1,20 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { EntityManager, In } from 'typeorm';
-import { EvaluationAttempt } from '../entities/evaluation-attempt.entity';
-import { EvaluationQuestion } from '../entities/evaluation-question.entity';
+import { BadRequestException, Injectable } from '@nestjs/common'
+import { EntityManager, In } from 'typeorm'
+import { EvaluationAttempt } from '../entities/evaluation-attempt.entity'
+import { EvaluationQuestion } from '../entities/evaluation-question.entity'
 
 export type EvaluationAnswerInput = {
-  questionId: string;
-  selectedAnswerId: string;
-};
+  questionId: string
+  selectedAnswerId: string
+}
 
 export type EvaluationAnswerRow = {
-  attemptId: string;
-  questionId: string;
-  selectedAnswerId: string;
-  evaluationDimensionId: string;
-  scoreValue: number;
-};
+  attemptId: string
+  questionId: string
+  selectedAnswerId: string
+  evaluationDimensionId: string
+  scoreValue: number
+}
 
 @Injectable()
 export class EvaluationAnswerBuilderService {
@@ -23,15 +23,15 @@ export class EvaluationAnswerBuilderService {
     attempt: EvaluationAttempt,
     inputs: EvaluationAnswerInput[],
   ): Promise<EvaluationAnswerRow[]> {
-    if (!inputs.length) return [];
+    if (!inputs.length) return []
 
-    const questionIds = inputs.map((answer) => answer.questionId);
-    const duplicatedQuestionIds = this.findDuplicates(questionIds);
+    const questionIds = inputs.map((answer) => answer.questionId)
+    const duplicatedQuestionIds = this.findDuplicates(questionIds)
 
     if (duplicatedQuestionIds.length > 0) {
       throw new BadRequestException(
         `Duplicate answers for questions: ${duplicatedQuestionIds.join(', ')}`,
-      );
+      )
     }
 
     const questions = await manager.getRepository(EvaluationQuestion).find({
@@ -43,30 +43,24 @@ export class EvaluationAnswerBuilderService {
         answers: true,
         evaluationDimension: true,
       },
-    });
+    })
 
     const questionMap = new Map<string, EvaluationQuestion>(
       questions.map((question) => [question.id, question]),
-    );
+    )
 
     if (questionMap.size !== questionIds.length) {
-      throw new BadRequestException(
-        'One or more questions do not belong to this evaluation',
-      );
+      throw new BadRequestException('One or more questions do not belong to this evaluation')
     }
 
     return inputs.map((input) => {
-      const question = questionMap.get(input.questionId);
-      if (!question) throw new BadRequestException('Invalid question');
+      const question = questionMap.get(input.questionId)
+      if (!question) throw new BadRequestException('Invalid question')
 
-      const selected = question.answers.find(
-        (answer) => answer.id === input.selectedAnswerId,
-      );
+      const selected = question.answers.find((answer) => answer.id === input.selectedAnswerId)
 
       if (!selected) {
-        throw new BadRequestException(
-          'Selected answer does not belong to question',
-        );
+        throw new BadRequestException('Selected answer does not belong to question')
       }
 
       return {
@@ -75,19 +69,19 @@ export class EvaluationAnswerBuilderService {
         selectedAnswerId: selected.id,
         evaluationDimensionId: question.evaluationDimensionId,
         scoreValue: Number(selected.scoreValue),
-      };
-    });
+      }
+    })
   }
 
   private findDuplicates(values: string[]) {
-    const seen = new Set<string>();
-    const duplicates = new Set<string>();
+    const seen = new Set<string>()
+    const duplicates = new Set<string>()
 
     for (const value of values) {
-      if (seen.has(value)) duplicates.add(value);
-      seen.add(value);
+      if (seen.has(value)) duplicates.add(value)
+      seen.add(value)
     }
 
-    return [...duplicates];
+    return [...duplicates]
   }
 }

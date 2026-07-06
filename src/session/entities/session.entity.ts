@@ -1,31 +1,26 @@
-import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  CreateDateColumn,
-} from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm'
 
 // sessions/session.entity.ts
 @Entity('sessions')
 export class Session {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string
 
   @Column()
-  userId: string;
+  userId: string
 
   @Column()
-  refreshTokenHash: string;
+  refreshTokenHash: string
 
   @Column({ nullable: true })
-  device: string;
+  device: string
 
   @Column({ nullable: true })
-  ip: string;
+  ip: string
 
   @Column()
-  expiresAt: Date;
+  expiresAt: Date
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date
 }
