@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Headers,
@@ -10,6 +9,8 @@ import {
   type RawBodyRequest,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiHeader } from '@nestjs/swagger'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import type { Request } from 'express'
 import { Roles } from 'src/users/decorators/role.decorator'
 import { UserRole } from 'src/common/enums/role.enum'
@@ -49,7 +50,7 @@ export class PaymentsController {
   webhook(@Req() req: RawBodyRequest<Request>, @Headers('x-moyasar-signature') signature?: string) {
     const raw = req.rawBody
     if (!raw?.length) {
-      throw new BadRequestException('Raw body is required — enable Nest rawBody (see bootstrap)')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_WEBHOOK_MISSING, 'Raw body is required — enable Nest rawBody (see bootstrap)')
     }
     return this.payments.handleWebhook(raw, signature)
   }

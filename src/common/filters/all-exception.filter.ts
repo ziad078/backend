@@ -1,4 +1,3 @@
-// filters/all-exceptions.filter.ts
 import {
   ArgumentsHost,
   BadRequestException,
@@ -10,7 +9,7 @@ import {
 } from '@nestjs/common'
 import { Request, Response } from 'express'
 import { QueryFailedError } from 'typeorm'
-import { ApiException } from '../exceptions/api.exception'
+import { ApiException, FieldError } from '../exceptions/api.exception'
 import { ApiErrorCodes } from '../enums/api-error.enum'
 import { ApiErrorResponse } from '../interfaces/api-response.interface'
 import { DatabaseErrorMapper } from '../mappers/database-error.mapper'
@@ -26,31 +25,33 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>()
 
     const apiException = this.normalizeException(exception)
-    const { code, message, details } = apiException.getResponse() as {
+    const responseObj = apiException.getResponse() as {
       code: ApiErrorCodes
       message: string
       details?: Record<string, unknown>
+      fieldErrors?: FieldError[]
     }
     const status = apiException.getStatus()
 
-    this.logException(request, status, message, exception)
+    this.logException(request, status, responseObj.message, exception)
 
     const errorResponse: ApiErrorResponse = {
       success: false,
-      statusCode: status,
+      error: {
+        code: responseObj.code,
+        message: responseObj.message,
+        details: responseObj.details,
+        fieldErrors: responseObj.fieldErrors,
+      },
+      requestId: (request as any).requestId ?? '',
       timestamp: new Date().toISOString(),
       path: request.originalUrl,
-      error: { code, message, details },
     }
 
     response.status(status).json(errorResponse)
   }
 
-  /**
-   * يحول أي Exception كان (DB, Http, Api, أو Unknown) إلى ApiException موحد.
-   */
   private normalizeException(exception: unknown): ApiException {
-    // 1) أخطاء الداتابيز
     if (exception instanceof QueryFailedError) {
       return DatabaseErrorMapper.map(exception)
     }
@@ -59,21 +60,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return ValidationErrorMapper.map(exception)
     }
 
-    // 2) الاستثناء بتاعنا أصلاً — يمر زي ما هو
     if (exception instanceof ApiException) {
       return exception
     }
 
-    // 3) أي HttpException عادي من Nest (ValidationPipe, NotFoundException...)
     if (exception instanceof HttpException) {
       return this.fromHttpException(exception)
     }
 
-    // 4) أي حاجة تانية غير متوقعة
-    return new ApiException(
-      HttpStatus.INTERNAL_SERVER_ERROR,
-      ApiErrorCodes.INTERNAL_SERVER_ERROR,
-      'Internal server error',
+    return ApiException.internal(
+      this.isDev() && exception instanceof Error ? exception.message : 'An unexpected error occurred',
       this.isDev() && exception instanceof Error ? { stack: exception.stack } : undefined,
     )
   }
@@ -103,15 +99,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private mapStatusToCode(status: HttpStatus): ApiErrorCodes {
     switch (status) {
       case HttpStatus.BAD_REQUEST:
-        return ApiErrorCodes.VALIDATION_ERROR
+        return ApiErrorCodes.VALIDATION_FAILED
       case HttpStatus.UNAUTHORIZED:
-        return ApiErrorCodes.UNAUTHORIZED
+        return ApiErrorCodes.AUTH_UNAUTHORIZED
       case HttpStatus.FORBIDDEN:
-        return ApiErrorCodes.FORBIDDEN
+        return ApiErrorCodes.AUTH_FORBIDDEN
       case HttpStatus.NOT_FOUND:
-        return ApiErrorCodes.NOT_FOUND
+        return ApiErrorCodes.USER_NOT_FOUND
       case HttpStatus.CONFLICT:
-        return ApiErrorCodes.CONFLICT
+        return ApiErrorCodes.USER_ALREADY_EXISTS
+      case HttpStatus.TOO_MANY_REQUESTS:
+        return ApiErrorCodes.RATE_LIMIT_EXCEEDED
+      case HttpStatus.SERVICE_UNAVAILABLE:
+        return ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE
       default:
         return ApiErrorCodes.INTERNAL_SERVER_ERROR
     }
@@ -123,10 +123,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
     message: string,
     original: unknown,
   ): void {
-    const line = `${request.method} ${request.originalUrl} -> ${status}: ${message}`
+    const requestId = (request as any).requestId ?? ''
+    const userId = (request as any).user?.userId ?? ''
+    const line = `[${requestId}] ${request.method} ${request.originalUrl} -> ${status}: ${message}${userId ? ` (user=${userId})` : ''}`
+
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(line, original instanceof Error ? original.stack : undefined)
-    } else {
+    } else if (status >= HttpStatus.BAD_REQUEST) {
       this.logger.warn(line)
     }
   }

@@ -18,6 +18,8 @@ import { PrivateChild } from 'src/children/entities/private-child.entity'
 import { SlotKind } from '../enums/evaluation-slot-kind.enum'
 import { EvaluationAttempt } from './evaluation-attempt.entity'
 import { ensureSingleChildType } from 'src/common/helpers/child-resolver.helper'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 
 @Entity('evaluation_slot')
 @Index('idx_evaluation_slot_org_child_status', ['organizationChildId', 'status'])
@@ -111,7 +113,11 @@ export class EvaluationSlot {
     const allowed = validTransitions[this.status] || []
 
     if (!allowed.includes(next)) {
-      throw new Error(`Invalid transition from ${this.status} to ${next}`)
+      throw ApiException.badRequest(
+        ApiErrorCodes.EVALUATION_INVALID_TRANSITION,
+        `Invalid transition from ${this.status} to ${next}`,
+        { from: this.status, to: next },
+      )
     }
 
     this.status = next

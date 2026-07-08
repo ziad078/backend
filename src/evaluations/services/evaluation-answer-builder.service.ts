@@ -1,4 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { EntityManager, In } from 'typeorm'
 import { EvaluationAttempt } from '../entities/evaluation-attempt.entity'
 import { EvaluationQuestion } from '../entities/evaluation-question.entity'
@@ -29,9 +31,7 @@ export class EvaluationAnswerBuilderService {
     const duplicatedQuestionIds = this.findDuplicates(questionIds)
 
     if (duplicatedQuestionIds.length > 0) {
-      throw new BadRequestException(
-        `Duplicate answers for questions: ${duplicatedQuestionIds.join(', ')}`,
-      )
+      throw ApiException.badRequest(ApiErrorCodes.EVALUATION_DUPLICATE_ANSWERS, `Duplicate answers for questions: ${duplicatedQuestionIds.join(', ')}`)
     }
 
     const questions = await manager.getRepository(EvaluationQuestion).find({
@@ -50,17 +50,17 @@ export class EvaluationAnswerBuilderService {
     )
 
     if (questionMap.size !== questionIds.length) {
-      throw new BadRequestException('One or more questions do not belong to this evaluation')
+      throw ApiException.badRequest(ApiErrorCodes.EVALUATION_INVALID_QUESTION, 'One or more questions do not belong to this evaluation')
     }
 
     return inputs.map((input) => {
       const question = questionMap.get(input.questionId)
-      if (!question) throw new BadRequestException('Invalid question')
+      if (!question) throw ApiException.badRequest(ApiErrorCodes.EVALUATION_INVALID_QUESTION, 'Invalid question')
 
       const selected = question.answers.find((answer) => answer.id === input.selectedAnswerId)
 
       if (!selected) {
-        throw new BadRequestException('Selected answer does not belong to question')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_INVALID_ANSWER, 'Selected answer does not belong to question')
       }
 
       return {

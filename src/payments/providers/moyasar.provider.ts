@@ -1,10 +1,7 @@
-import {
-  Injectable,
-  Logger,
-  ServiceUnavailableException,
-  UnauthorizedException,
-} from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto'
 import type {
   CreatePaymentProviderInput,
@@ -31,14 +28,14 @@ export class MoyasarProvider implements PaymentProvider {
     const secret = this.config.get<string>('MOYASAR_WEBHOOK_SECRET')
     if (!secret?.trim()) {
       this.logger.error('MOYASAR_WEBHOOK_SECRET is not configured')
-      throw new UnauthorizedException('Webhook verification is not configured')
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Webhook verification is not configured')
     }
 
     const expectedHex = createHmac('sha256', secret).update(rawBody).digest('hex')
     const provided = (signatureHeader ?? '').trim()
 
     if (!provided) {
-      throw new UnauthorizedException('Missing webhook signature')
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Missing webhook signature')
     }
 
     const normalized = provided.toLowerCase()
@@ -46,11 +43,11 @@ export class MoyasarProvider implements PaymentProvider {
     const providedBuf = Buffer.from(normalized, 'utf8')
 
     if (expectedBuf.length !== providedBuf.length) {
-      throw new UnauthorizedException('Invalid webhook signature')
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Invalid webhook signature')
     }
 
     if (!timingSafeEqual(expectedBuf, providedBuf)) {
-      throw new UnauthorizedException('Invalid webhook signature')
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Invalid webhook signature')
     }
   }
 
@@ -109,7 +106,7 @@ export class MoyasarProvider implements PaymentProvider {
 
     if (!res.ok) {
       this.logger.error(`Moyasar invoice create failed: HTTP ${res.status} ${JSON.stringify(json)}`)
-      throw new ServiceUnavailableException('Payment provider could not create a checkout session')
+      throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE, 'Payment service unavailable')
     }
 
     const providerId = String(json?.id ?? '')
@@ -120,7 +117,7 @@ export class MoyasarProvider implements PaymentProvider {
 
     if (!providerId || !url) {
       this.logger.error(`Moyasar invoice response missing id/url: ${JSON.stringify(json)}`)
-      throw new ServiceUnavailableException('Payment provider returned an unexpected response')
+      throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE, 'Payment service unavailable')
     }
 
     return { providerId, url }

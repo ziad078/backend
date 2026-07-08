@@ -1,10 +1,7 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { NotificationDelivery } from 'src/notifications/enums/notification-delivery.enum'
 import { NotificationsService } from 'src/notifications/notifications.service'
 import { Organization } from 'src/organizations/entities/organization.entity'
@@ -49,7 +46,7 @@ export class DealsService {
       where: { id: dto.activityId },
     })
     if (!activity) {
-      throw new NotFoundException('Activity not found')
+      throw ApiException.notFound(ApiErrorCodes.ACTIVITY_NOT_FOUND, 'Activity not found')
     }
 
     const organizationId = await this.resolveOrganizationId(currentUser)
@@ -58,7 +55,7 @@ export class DealsService {
       relations: ['owner'],
     })
     if (!organization) {
-      throw new NotFoundException('Organization not found')
+      throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found')
     }
 
     const creator = await this.usersRepo.findOne({
@@ -66,7 +63,7 @@ export class DealsService {
       select: ['id', 'name', 'email'],
     })
     if (!creator) {
-      throw new NotFoundException('User not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
     }
 
     const deal = this.dealsRepo.create({
@@ -105,7 +102,7 @@ export class DealsService {
       relations: ['organization', 'organization.owner'],
     })
     if (!deal) {
-      throw new NotFoundException('Deal not found')
+      throw ApiException.notFound(ApiErrorCodes.DEAL_NOT_FOUND, 'Deal not found')
     }
 
     this.ensureDealAcceptsBids(deal)
@@ -117,7 +114,7 @@ export class DealsService {
       },
     })
     if (existing) {
-      throw new BadRequestException('You have already submitted a proposal for this deal')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_DUPLICATE_PROPOSAL, 'You have already submitted a proposal for this deal')
     }
 
     const provider = await this.usersRepo.findOne({
@@ -125,7 +122,7 @@ export class DealsService {
       select: ['id', 'name', 'email'],
     })
     if (!provider) {
-      throw new NotFoundException('User not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
     }
 
     const proposal = this.proposalsRepo.create({
@@ -154,15 +151,15 @@ export class DealsService {
       relations: ['deal', 'provider'],
     })
     if (!proposal) {
-      throw new NotFoundException('Proposal not found')
+      throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND, 'Proposal not found')
     }
 
     if (proposal.provider.id !== currentUser.userId) {
-      throw new ForbiddenException('You can only update your own proposal')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only update your own proposal')
     }
 
     if (new Date() >= proposal.deal.deadline) {
-      throw new BadRequestException('Cannot update proposal after deal deadline')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_DEADLINE_PASSED, 'Cannot update proposal after deal deadline')
     }
 
     proposal.price = dto.price.toFixed(2)
@@ -171,11 +168,11 @@ export class DealsService {
 
   private ensureDealAcceptsBids(deal: Deal): void {
     if (deal.status !== DealStatus.OPEN) {
-      throw new BadRequestException('This deal is closed')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_CLOSED, 'This deal is closed')
     }
 
     if (new Date() >= new Date(deal.deadline)) {
-      throw new BadRequestException('Deal deadline has passed')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_DEADLINE_PASSED, 'Deal deadline has passed')
     }
   }
 
@@ -188,7 +185,7 @@ export class DealsService {
         select: ['id'],
       })
       if (!org) {
-        throw new NotFoundException('Organization not found for owner')
+        throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found for owner')
       }
       return org.id
     }
@@ -199,12 +196,12 @@ export class DealsService {
         relations: ['organization'],
       })
       if (!teacher?.organization?.id) {
-        throw new NotFoundException('Organization not found for teacher')
+        throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found for teacher')
       }
       return teacher.organization.id
     }
 
-    throw new ForbiddenException('You are not allowed to create deals')
+    throw ApiException.forbidden(ApiErrorCodes.DEAL_CANNOT_CREATE, 'You are not allowed to create deals')
   }
 
   listDeals(status?: string) {
@@ -232,11 +229,11 @@ export class DealsService {
       where: { id: proposalId },
       relations: ['deal', 'deal.organization', 'deal.organization.owner'],
     })
-    if (!proposal) throw new NotFoundException('Proposal not found')
+    if (!proposal) throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND, 'Proposal not found')
 
     const orgId = await this.resolveOrganizationId(currentUser)
     if (proposal.deal.organization.id !== orgId) {
-      throw new ForbiddenException('You can only manage your own organization deals')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only manage your own organization deals')
     }
 
     proposal.status = ProposalStatus.SELECTED
@@ -253,11 +250,11 @@ export class DealsService {
       where: { id: dealId },
       relations: ['organization', 'organization.owner'],
     })
-    if (!deal) throw new NotFoundException('Deal not found')
+    if (!deal) throw ApiException.notFound(ApiErrorCodes.DEAL_NOT_FOUND, 'Deal not found')
 
     const orgId = await this.resolveOrganizationId(currentUser)
     if (deal.organization.id !== orgId) {
-      throw new ForbiddenException('You can only view proposals for your own deals')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only view proposals for your own deals')
     }
 
     return this.proposalsRepo.find({
@@ -272,9 +269,9 @@ export class DealsService {
       where: { id: proposalId },
       relations: ['deal'],
     })
-    if (!proposal) throw new NotFoundException('Proposal not found')
+    if (!proposal) throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND, 'Proposal not found')
     if (proposal.status !== ProposalStatus.SELECTED) {
-      throw new BadRequestException('Only selected proposals can be approved')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_PROPOSAL_INVALID_STATE, 'Only selected proposals can be approved')
     }
 
     proposal.status = ProposalStatus.APPROVED

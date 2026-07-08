@@ -1,17 +1,13 @@
 import {
-  BadRequestException,
   Body,
-  ConflictException,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
   Req,
-  UnauthorizedException,
 } from '@nestjs/common'
 import { LoginDto } from '../dto/login.dto'
 import { JwtService } from '@nestjs/jwt'
@@ -25,6 +21,8 @@ import { type AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { AuthProvider, TokenPayload } from '../services/auth.provider'
 import { UsersService } from '../services/users.service'
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { Throttle } from '@nestjs/throttler'
 @ApiTags('auth')
 @ApiBearerAuth()
@@ -42,7 +40,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto) {
     const user = await this.authService.validateUser(dto.phone, dto.password)
 
-    if (!user) throw new UnauthorizedException()
+      if (!user) throw ApiException.unauthorized(ApiErrorCodes.AUTH_INVALID_CREDENTIALS, 'Invalid credentials')
 
     return this.authService.login(user)
   }
@@ -52,7 +50,7 @@ export class AuthController {
   async beneficiariesSiginup(@Body() dto: BeneficiariesSignupDto) {
     const alreadyExists = await this.authService.isAlreadyExits(dto.phone, dto.email)
     if (alreadyExists) {
-      throw new ConflictException('User already exists')
+      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS, 'User already exists')
     }
     return this.authService.beneficiariesSignup(dto)
   }
@@ -61,7 +59,7 @@ export class AuthController {
   async enrichersSignup(@Body() dto: EnrichersSignupDto) {
     const alreadyExists = await this.authService.isAlreadyExits(dto.phone, dto.email)
     if (alreadyExists) {
-      throw new ConflictException('User already exists')
+      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS, 'User already exists')
     }
     return this.authService.enrichersSignup(dto)
   }
@@ -70,7 +68,7 @@ export class AuthController {
   async parentSignup(@Body() dto: ParentSignupDto) {
     const alreadyExists = await this.authService.isAlreadyExits(dto.phone, dto.email)
     if (alreadyExists) {
-      throw new ConflictException('User already exists')
+      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS, 'User already exists')
     }
     return this.authService.parentSignup(dto)
   }
@@ -78,7 +76,7 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Body('token') token?: string) {
     if (!token) {
-      throw new UnauthorizedException('Refresh token missing')
+      throw ApiException.unauthorized(ApiErrorCodes.AUTH_REFRESH_TOKEN_MISSING, 'Refresh token missing')
     }
     try {
       const payload = this.jwtService.verify<TokenPayload>(token)
@@ -94,18 +92,18 @@ export class AuthController {
 
       if (!matchedSession) {
         await this.sessionsService.deleteAllUserSessions(payload.sub)
-        throw new UnauthorizedException('Session compromised')
+        throw ApiException.unauthorized(ApiErrorCodes.AUTH_SESSION_COMPROMISED, 'Session compromised')
       }
 
       const user = await this.usersService.findById(payload.sub)
 
-      if (!user) throw new UnauthorizedException()
+    if (!user) throw ApiException.unauthorized(ApiErrorCodes.AUTH_INVALID_CREDENTIALS, 'Invalid credentials')
 
       await this.sessionsService.deleteSession(matchedSession.id)
 
       return this.authService.login(user)
     } catch {
-      throw new BadRequestException('Invalid or expired token')
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID, 'Invalid or expired token')
     }
   }
 
@@ -113,7 +111,7 @@ export class AuthController {
   async logout(@Param('sessionId', new ParseUUIDPipe()) id: string, @Req() req: AuthRequest) {
     const session = await this.sessionsService.findOne(id)
     if (!session || session.userId !== req.user.userId) {
-      throw new ForbiddenException('Cannot logout this session')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_LOGOUT_FAILED, 'Cannot logout this session')
     }
     await this.sessionsService.deleteSession(id)
     return { message: 'Logged out', statusCode: 200 }

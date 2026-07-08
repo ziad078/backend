@@ -1,10 +1,7 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { UserRole } from 'src/common/enums/role.enum'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { DataSource, Repository } from 'typeorm'
 import { Teacher } from '../entities/teacher.entity'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -30,7 +27,7 @@ export class TeachersProvider {
   async create(dto: CreateTeacherDto, currentUser: JwtRequestUser) {
     return this.dataSource.transaction(async (manager) => {
       const isExits = await this.authService.isAlreadyExits(dto.phone, dto.email)
-      if (isExits) throw new ConflictException('teacher already exits')
+      if (isExits) throw ApiException.conflict(ApiErrorCodes.TEACHER_ALREADY_EXISTS, 'Teacher already exists')
       const organization = await this.orgService.findByOwner(currentUser.userId)
       await this.orgService.assertOrganizationApproved(organization.id)
       const user = await this.usersService.create(
@@ -62,10 +59,10 @@ export class TeachersProvider {
       relations: ['user', 'organization'],
     })
 
-    if (!teacher) throw new NotFoundException('Teacher not found')
+    if (!teacher) throw ApiException.notFound(ApiErrorCodes.TEACHER_NOT_FOUND, 'Teacher not found')
 
     if (!(await this.orgService.isOrgMember(currentUser.userId, teacher.organization.id))) {
-      throw new ForbiddenException('You do not have access to this teacher')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You do not have access to this teacher')
     }
     await this.orgService.assertOrganizationApproved(teacher.organization.id)
 
@@ -74,7 +71,7 @@ export class TeachersProvider {
       const org = await this.dataSource
         .getRepository(Organization)
         .findOne({ where: { id: updateTeacherDto.organizationId } })
-      if (!org) throw new NotFoundException('Organization not found')
+      if (!org) throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found')
 
       teacher.organization = org
     }
@@ -93,14 +90,14 @@ export class TeachersProvider {
     teachers: ITeacherResponseDto[]
   }> {
     if (!(await this.orgService.isOrgMember(currentUser.userId, organizationId))) {
-      throw new ForbiddenException('You do not have access to this organization')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You do not have access to this organization')
     }
 
     const organization = await this.dataSource.getRepository(Organization).findOne({
       where: { id: organizationId },
     })
     if (!organization) {
-      throw new NotFoundException('Organization not found')
+      throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found')
     }
 
     const teachers = await this.teacherRepo.find({
@@ -132,10 +129,10 @@ export class TeachersProvider {
       where: { id },
       relations: ['organization', 'user'],
     })
-    if (!teacher) throw new NotFoundException('Teacher not found')
+    if (!teacher) throw ApiException.notFound(ApiErrorCodes.TEACHER_NOT_FOUND, 'Teacher not found')
 
     if (!(await this.orgService.isOrgMember(currentUser.userId, teacher.organization.id))) {
-      throw new ForbiddenException('You do not have access to this teacher')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You do not have access to this teacher')
     }
     await this.orgService.assertOrganizationApproved(teacher.organization.id)
 

@@ -1,5 +1,7 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bull'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import type { Queue, JobOptions } from 'bull'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
@@ -49,7 +51,7 @@ export class NotificationsService {
       })
 
       if (!user?.email) {
-        throw new BadRequestException('Email is required for email notification delivery')
+        throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED, 'Email is required for email notification delivery')
       }
 
       payload.email = user.email
@@ -75,19 +77,17 @@ export class NotificationsService {
         select: ['id', 'email'],
       })
       if (!user) {
-        throw new NotFoundException('User not found')
+        throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
       }
       email = user.email
     }
 
     if (dto.delivery === NotificationDelivery.EMAIL && !email?.trim()) {
-      throw new BadRequestException('Email is required for email delivery')
+      throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED, 'Email is required for email delivery')
     }
 
     if (dto.delivery === NotificationDelivery.BOTH && !email?.trim()) {
-      throw new BadRequestException(
-        'Email is required for combined delivery when the user has no email on file',
-      )
+      throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED, 'Email is required for combined delivery when the user has no email on file')
     }
 
     const payload: NotificationSendJobPayload = {
@@ -173,7 +173,7 @@ export class NotificationsService {
       .execute()
 
     if (!res.affected) {
-      throw new NotFoundException('Notification not found')
+      throw ApiException.notFound(ApiErrorCodes.NOTIFICATION_NOT_FOUND, 'Notification not found')
     }
   }
 

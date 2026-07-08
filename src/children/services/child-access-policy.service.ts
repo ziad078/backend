@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { OrganizationChild } from '../entities/organization-child.entity'
@@ -8,6 +8,8 @@ import { UserRole } from 'src/common/enums/role.enum'
 import { OrganizationsService } from 'src/organizations/organizations.service'
 import { hasRole } from 'src/common/utils/has-role.util'
 import { isOrganizationChild } from 'src/common/helpers/child-resolver.helper'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 
 @Injectable()
 export class ChildAccessPolicy {
@@ -41,7 +43,7 @@ export class ChildAccessPolicy {
     })
 
     if (!privateChild) {
-      throw new NotFoundException('child not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
     }
 
     return privateChild
@@ -79,7 +81,7 @@ export class ChildAccessPolicy {
       }
     }
 
-    throw new ForbiddenException('You do not have access to this child')
+    throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, 'You do not have access to this child')
   }
 
   assertWriteAccess(child: OrganizationChild | PrivateChild, actor: JwtRequestUser) {
@@ -96,12 +98,12 @@ export class ChildAccessPolicy {
       }
     }
 
-    throw new ForbiddenException('You are not allowed to modify this child')
+    throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, 'You are not allowed to modify this child')
   }
 
   assertCanListChildrenForUser(targetUserId: string, actor: JwtRequestUser) {
     if (hasRole(actor.roles, UserRole.ADMIN)) return
     if (actor.userId === targetUserId) return
-    throw new ForbiddenException('You can only list children for your own account')
+    throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, 'You can only list children for your own account')
   }
 }

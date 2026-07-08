@@ -1,4 +1,6 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { DataSource } from 'typeorm'
 import { UserRole } from 'src/common/enums/role.enum'
 import { SaveProgressDto } from '../dto/save-progress.dto'
@@ -35,12 +37,12 @@ export class EvaluationProgressService {
         lock: { mode: 'pessimistic_write' },
       })
 
-      if (!attempt) throw new NotFoundException('Attempt not found')
+      if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
 
       this.access.assertParentOwnership(attempt, actor)
 
       if (attempt.status !== EvaluationAttemptStatus.IN_PROGRESS) {
-        throw new BadRequestException('Attempt is locked')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Attempt is locked')
       }
 
       const rows = await this.answers.buildRows(manager, attempt, answers)

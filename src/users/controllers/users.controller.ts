@@ -7,13 +7,14 @@ import {
   Post,
   ParseUUIDPipe,
   Req,
-  ForbiddenException,
 } from '@nestjs/common'
 import { UserRole } from 'src/common/enums/role.enum'
 import { TeachersProvider } from '../services/teachers.provider'
 import { Roles } from '../decorators/role.decorator'
 import { UsersService } from '../services/users.service'
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import type { AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { hasRole } from 'src/common/utils/has-role.util'
 @ApiTags('users')
@@ -63,7 +64,7 @@ export class UsersController {
   findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthRequest) {
     const isAdmin = hasRole(req.user.roles, UserRole.ADMIN)
     if (!isAdmin && req.user.userId !== id) {
-      throw new ForbiddenException('You can only view your own profile')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only view your own profile')
     }
     return this.usersService.findById(id)
   }

@@ -45,13 +45,15 @@ export class NotificationProcessor {
 
     if (sendEmail) {
       if (!email?.trim()) {
-        throw new Error(`Job ${job.id}: email delivery requested but no email address provided`)
+        this.logger.warn(`Job ${job.id}: email delivery requested but no email address provided, skipping`)
+        return
       }
       await this.email.sendEmail(email, title, message)
     }
     if (sendVerificationEmail) {
       if (!email?.trim()) {
-        throw new Error(`Job ${job.id}: email delivery requested but no email address provided`)
+        this.logger.warn(`Job ${job.id}: email delivery requested but no email address provided, skipping`)
+        return
       }
       const token = this.authService.generateVerificationToken(userId)
       await this.email.sendVerificationEmail(email, token)

@@ -1,4 +1,6 @@
-import { ForbiddenException, Injectable } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { UserRole } from 'src/common/enums/role.enum'
 import { EvaluationAttempt } from '../entities/evaluation-attempt.entity'
 import { resolveChild } from 'src/common/helpers/child-resolver.helper'
@@ -13,20 +15,20 @@ export type EvaluationActor = {
 export class EvaluationAccessPolicy {
   assertHasRole(actor: EvaluationActor, allowed: UserRole[]) {
     if (!actor.roles.some((role) => allowed.includes(role))) {
-      throw new ForbiddenException('Insufficient role')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'Insufficient role')
     }
   }
 
   assertParentOwnership(attempt: EvaluationAttempt, actor: EvaluationActor) {
     if (actor.parentProfileId) {
       if (attempt.parentId !== actor.parentProfileId) {
-        throw new ForbiddenException('Attempt not owned by this parent')
+        throw ApiException.forbidden(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not owned by this parent')
       }
       return
     }
 
     if (!attempt.parent || attempt.parent.userId !== actor.userId) {
-      throw new ForbiddenException('Attempt not owned by this parent')
+      throw ApiException.forbidden(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not owned by this parent')
     }
   }
 
@@ -42,7 +44,7 @@ export class EvaluationAccessPolicy {
     const childClass = child && 'class' in child ? child.class : undefined
 
     if (!childClass) {
-      throw new ForbiddenException('Private child attempt is not accessible')
+      throw ApiException.forbidden(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Private child attempt is not accessible')
     }
 
     if (
@@ -56,6 +58,6 @@ export class EvaluationAccessPolicy {
       return
     }
 
-    throw new ForbiddenException('Attempt not accessible')
+    throw ApiException.forbidden(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not accessible')
   }
 }

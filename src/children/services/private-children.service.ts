@@ -6,6 +6,8 @@ import { ChildAccessPolicy } from '../policies/child-access.policy'
 import { AuditLoggingService } from 'src/common/services/audit-logging.service'
 import { AuditAction } from 'src/common/enums/audit-action.enum'
 import { Actor } from 'src/common/policies/base-policy.interface'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 
 @Injectable()
 export class PrivateChildrenService {
@@ -19,7 +21,7 @@ export class PrivateChildrenService {
   async create(dto: any, actor: Actor): Promise<PrivateChild> {
     const policyResult = this.childAccessPolicy.canCreate(actor)
     if (!policyResult.allowed) {
-      throw new Error(policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
     }
 
     const child = this.privateChildRepo.create(dto)
@@ -45,12 +47,12 @@ export class PrivateChildrenService {
     })
 
     if (!child) {
-      throw new Error('Private child not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
     }
 
     const policyResult = this.childAccessPolicy.canView(actor, child)
     if (!policyResult.allowed) {
-      throw new Error(policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
     }
 
     return child
@@ -97,7 +99,7 @@ export class PrivateChildrenService {
   async findByParent(parentUserId: string, actor: Actor): Promise<PrivateChild[]> {
     const policyResult = this.childAccessPolicy.canListPrivateChildren(actor, parentUserId)
     if (!policyResult.allowed) {
-      throw new Error(policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
     }
 
     return this.privateChildRepo.find({

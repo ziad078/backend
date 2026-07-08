@@ -1,4 +1,6 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { EventEmitter2 } from 'eventemitter2'
 import { DataSource } from 'typeorm'
 import { UserRole } from 'src/common/enums/role.enum'
@@ -52,12 +54,12 @@ export class EvaluationSubmissionService {
         lock: { mode: 'pessimistic_write' },
       })
 
-      if (!attempt) throw new NotFoundException('Attempt not found')
+      if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
 
       this.access.assertParentOwnership(attempt, actor)
 
       if (attempt.status !== EvaluationAttemptStatus.IN_PROGRESS) {
-        throw new BadRequestException('Attempt is locked')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Attempt is locked')
       }
 
       const now = new Date()
@@ -83,7 +85,7 @@ export class EvaluationSubmissionService {
       })
 
       if (!evaluation) {
-        throw new NotFoundException('Evaluation not found')
+        throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
       }
 
       const result = this.scoring.calculate(evaluation, savedAnswers)

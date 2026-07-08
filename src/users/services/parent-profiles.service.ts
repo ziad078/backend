@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { OnEvent } from '@nestjs/event-emitter'
 import { InjectRepository } from '@nestjs/typeorm'
 import { EntityManager, Repository } from 'typeorm'
@@ -7,6 +7,8 @@ import { ParentOrganization } from '../entities/parent-organization.entity'
 import { User } from '../entities/user.entity'
 import { Organization } from 'src/organizations/entities/organization.entity'
 import { UserRole } from 'src/common/enums/role.enum'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { ParentOrganizationStatus } from '../enums/parent-organization-status.enum'
 import { ParentOrganizationSource } from '../enums/parent-organization-source.enum'
 import { UsersService } from './users.service'
@@ -55,7 +57,7 @@ export class ParentProfilesService {
     })
 
     if (!user) {
-      throw new NotFoundException(`User ${userId} not found`)
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
     }
 
     // Ensure user has PARENT role
@@ -89,7 +91,7 @@ export class ParentProfilesService {
       relations: ['user', 'organizationLinks', 'organizationChildren', 'privateChildren'],
     })
     if (!parentProfile) {
-      throw new NotFoundException(`parent with id ${userId} isn't found`)
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'Parent not found')
     }
     return parentProfile
   }
@@ -114,7 +116,7 @@ export class ParentProfilesService {
     })
 
     if (!profile) {
-      throw new NotFoundException(`Parent profile ${parentProfileId} not found`)
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
     }
 
     return profile.userId
@@ -204,7 +206,7 @@ export class ParentProfilesService {
     const uniqueParents = Array.from(new Map(parentMatches.map((p) => [p.id, p])).values())
 
     if (uniqueParents.length > 1) {
-      throw new ConflictException('The provided phone and email belong to different accounts')
+      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS, 'The provided phone and email belong to different accounts')
     }
 
     let parent = uniqueParents[0]
@@ -227,7 +229,7 @@ export class ParentProfilesService {
     } else {
       // Create new parent user
       if (!parentData.name) {
-        throw new ConflictException('Parent name is required when creating a new parent account')
+        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, 'Parent name is required when creating a new parent account')
       }
 
       const userManager = manager ?? this.userRepository.manager

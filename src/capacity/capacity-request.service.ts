@@ -1,10 +1,7 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-} from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { Repository } from 'typeorm'
 import { CapacityRequest } from './entities/capacity-request.entity'
 import { CreateCapacityRequestDto } from './dto/create-capacity-request.dto'
@@ -38,7 +35,7 @@ export class CapacityRequestService {
     })
 
     if (!parentProfile) {
-      throw new NotFoundException('Parent profile not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
     }
 
     const capacityRequest = this.capacityRequestRepository.create({
@@ -77,7 +74,7 @@ export class CapacityRequestService {
     })
 
     if (!parentProfile) {
-      throw new NotFoundException('Parent profile not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
     }
 
     return this.capacityRequestRepository.find({
@@ -94,7 +91,7 @@ export class CapacityRequestService {
     })
 
     if (!capacityRequest) {
-      throw new NotFoundException('Capacity request not found')
+      throw ApiException.notFound(ApiErrorCodes.CAPACITY_NOT_FOUND, 'Capacity request not found')
     }
 
     if (!hasRole(user.roles, UserRole.ADMIN)) {
@@ -103,7 +100,7 @@ export class CapacityRequestService {
       })
 
       if (!parentProfile || parentProfile.id !== capacityRequest.parentId) {
-        throw new ForbiddenException('You do not have access to this capacity request')
+        throw ApiException.forbidden(ApiErrorCodes.CAPACITY_ACCESS_DENIED, 'You do not have access to this capacity request')
       }
     }
 
@@ -119,7 +116,7 @@ export class CapacityRequestService {
     const capacityRequest = await this.findOne(id, user)
 
     if (!hasRole(user.roles, UserRole.ADMIN)) {
-      throw new ForbiddenException('Only admins can update capacity requests')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'Only admins can update capacity requests')
     }
 
     const oldValue = { ...capacityRequest }

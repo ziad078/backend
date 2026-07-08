@@ -1,4 +1,4 @@
-import { ClassSerializerInterceptor, Module } from '@nestjs/common'
+import { ClassSerializerInterceptor, Module, MiddlewareConsumer, NestModule } from '@nestjs/common'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { ChildrenModule } from './children/children.module'
@@ -25,6 +25,7 @@ import { CommonModule } from './common/common.module'
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor'
 import { CapacityModule } from './capacity/capacity.module'
 import { ApiResponseSuccessIntercepter } from './common/interceptors/api-success-response.interceptor'
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware'
 
 @Module({
   imports: [
@@ -53,7 +54,6 @@ import { ApiResponseSuccessIntercepter } from './common/interceptors/api-success
       },
     ]),
     EventEmitterModule.forRoot({
-      // Wildcards are handy for future `evaluation.*` listeners
       wildcard: true,
       delimiter: '.',
       maxListeners: 50,
@@ -78,9 +78,7 @@ import { ApiResponseSuccessIntercepter } from './common/interceptors/api-success
       username: process.env.DB_USERNAME,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
-      // entities: [],
       autoLoadEntities: true,
-
       synchronize: process.env.DB_SYNCHRONIZE === 'true',
     }),
     UsersModule,
@@ -123,4 +121,8 @@ import { ApiResponseSuccessIntercepter } from './common/interceptors/api-success
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestIdMiddleware).forRoutes('*')
+  }
+}

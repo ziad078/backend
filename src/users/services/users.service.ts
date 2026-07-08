@@ -1,8 +1,10 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import * as bcrypt from 'bcrypt'
 import { InjectRepository } from '@nestjs/typeorm'
 import { EntityManager, In, Not, Repository } from 'typeorm'
 import { UserRole } from 'src/common/enums/role.enum'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { CreateUserDto } from '../dto/create-user.dto'
 import { UpdateUserDto } from '../dto/update-user.dto'
 import { IUserResponseDto } from '../dto/user-response.dto'
@@ -78,12 +80,12 @@ export class UsersService {
 
   async findById(id: string) {
     const user = await this.userRepo.findOneBy({ id })
-    if (!user) throw new NotFoundException('user not found')
+    if (!user) throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
     return user
   }
   async findTeacher(id: string) {
     const user = await this.teacherRepo.findOne({ where: { user: { id } } })
-    if (!user) throw new NotFoundException(`teacher with this id ${id} isn't found`)
+    if (!user) throw ApiException.notFound(ApiErrorCodes.TEACHER_NOT_FOUND, 'Teacher not found')
     return user
   }
   async findByPhone(phone: string) {
@@ -97,7 +99,7 @@ export class UsersService {
     const repo = manager ? manager.getRepository(User) : this.userRepo
 
     const user = await repo.findOne({ where: { id }, relations: ['roles'] })
-    if (!user) throw new NotFoundException('user not found')
+    if (!user) throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
 
     if (dto.name !== undefined) user.name = dto.name
 
@@ -107,7 +109,7 @@ export class UsersService {
         where: { email, id: Not(id) },
       })
       if (emailTaken) {
-        throw new ConflictException('Email already in use')
+        throw ApiException.conflict(ApiErrorCodes.USER_EMAIL_IN_USE, 'Email already in use')
       }
       user.email = email
     }
@@ -117,7 +119,7 @@ export class UsersService {
         where: { phone: dto.phone, id: Not(id) },
       })
       if (phoneTaken) {
-        throw new ConflictException('Phone number already in use')
+        throw ApiException.conflict(ApiErrorCodes.USER_PHONE_IN_USE, 'Phone number already in use')
       }
       user.phone = dto.phone
     }
@@ -141,7 +143,7 @@ export class UsersService {
       where: { id: userId },
       relations: ['roles'],
     })
-    if (!user) throw new NotFoundException('user not found')
+    if (!user) throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
 
     const existingNames = new Set(user.roles.map((r) => r.name))
     const toAdd = roleNames.filter((name) => !existingNames.has(name))
@@ -165,7 +167,7 @@ export class UsersService {
       where: { id: userId },
       relations: ['roles'],
     })
-    if (!user) throw new NotFoundException('user not found')
+    if (!user) throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
 
     const remove = new Set(roleNames)
     user.roles = user.roles.filter((r) => !remove.has(r.name))
@@ -180,7 +182,7 @@ export class UsersService {
     const result = await this.userRepo.delete({ id })
 
     if (result.affected === 0) {
-      throw new NotFoundException('user not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
     }
 
     return { message: 'Deleted successfully' }

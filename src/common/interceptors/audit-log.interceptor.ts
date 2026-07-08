@@ -28,10 +28,12 @@ export class AuditLogInterceptor implements NestInterceptor {
     const request = context.switchToHttp().getRequest<AuthRequest>()
 
     return next.handle().pipe(
-      tap(async (data) => {
+      tap(async (rawData) => {
         if (!request.user) {
           return
         }
+
+        const data = rawData?.data !== undefined ? rawData.data : rawData
 
         const userRole =
           request.user.roles.length > 0 ? request.user.roles[0].name : UserRole.PARENT

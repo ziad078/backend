@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Class } from 'src/classes/entities/class.entity'
 import { OrganizationChild } from 'src/children/entities/organization-child.entity'
@@ -22,6 +17,8 @@ import {
   getChildType,
   ensureSingleChildType,
 } from 'src/common/helpers/child-resolver.helper'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 
 @Injectable()
 export class TransferService {
@@ -63,21 +60,19 @@ export class TransferService {
         where: { id: childId },
         relations: ['organization', 'class'],
       })
-      if (!orgChild) throw new NotFoundException('Organization child not found')
+      if (!orgChild) throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
       fromOrganizationId = orgChild.organizationId
       if (fromOrganizationId === toOrganizationId) {
-        throw new ConflictException('Child already exists in your school')
+        throw ApiException.conflict(ApiErrorCodes.CHILD_DUPLICATE, 'Child already exists in your school')
       }
     } else {
       const privateChild = await privateChildRepo.findOne({ where: { id: childId } })
-      if (!privateChild) throw new NotFoundException('Private child not found')
-      throw new BadRequestException(
-        'Cannot transfer private child - only organization children can be transferred',
-      )
+      if (!privateChild) throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
+      throw ApiException.badRequest(ApiErrorCodes.TRANSFER_INVALID_CHILD_TYPE, 'Cannot transfer private child - only organization children can be transferred')
     }
 
     const toOrganization = await orgRepo.findOneBy({ id: toOrganizationId })
-    if (!toOrganization) throw new NotFoundException('target organization not found')
+    if (!toOrganization) throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Target organization not found')
 
     const whereClause: any = {
       fromOrganizationId,
@@ -142,18 +137,18 @@ export class TransferService {
       where: { id: transferRequestId },
       relations: ['fromOrganization', 'toOrganization', 'organizationChild', 'privateChild'],
     })
-    if (!transfer) throw new NotFoundException('transfer request not found')
+    if (!transfer) throw ApiException.notFound(ApiErrorCodes.TRANSFER_NOT_FOUND, 'Transfer request not found')
     if (transfer.status !== TransferRequestStatus.PENDING) {
-      throw new ConflictException('Transfer request is already resolved')
+      throw ApiException.conflict(ApiErrorCodes.TRANSFER_ALREADY_RESOLVED, 'Transfer request is already resolved')
     }
 
     const cls = await classRepo.findOne({
       where: { id: classId },
       relations: { organization: true },
     })
-    if (!cls) throw new NotFoundException('class not found')
+    if (!cls) throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND, 'Class not found')
     if (cls.organization.id !== transfer.toOrganizationId) {
-      throw new BadRequestException('Class must belong to the target organization')
+      throw ApiException.badRequest(ApiErrorCodes.CLASS_NOT_FOUND, 'Class must belong to the target organization')
     }
 
     const oldValue = { status: transfer.status }
@@ -163,7 +158,7 @@ export class TransferService {
     if (transfer.organizationChildId) {
       await orgChildRepo.update({ id: transfer.organizationChildId }, { classId })
     } else {
-      throw new BadRequestException('Cannot approve transfer for private child')
+      throw ApiException.badRequest(ApiErrorCodes.TRANSFER_INVALID_CHILD_TYPE, 'Cannot approve transfer for private child')
     }
 
     await this.auditService.logApprove(
@@ -190,9 +185,9 @@ export class TransferService {
     const transfer = await transferRepo.findOne({
       where: { id: transferRequestId },
     })
-    if (!transfer) throw new NotFoundException('transfer request not found')
+    if (!transfer) throw ApiException.notFound(ApiErrorCodes.TRANSFER_NOT_FOUND, 'Transfer request not found')
     if (transfer.status !== TransferRequestStatus.PENDING) {
-      throw new ConflictException('Transfer request is already resolved')
+      throw ApiException.conflict(ApiErrorCodes.TRANSFER_ALREADY_RESOLVED, 'Transfer request is already resolved')
     }
 
     const oldValue = { status: transfer.status }

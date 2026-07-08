@@ -1,4 +1,6 @@
-import { Injectable, BadRequestException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { EvaluationType } from '../enums/evaluation-type.enum'
 import { ScoringStrategy } from './scoring-strategy.interface'
 import { MultipleIntelligencesStrategy } from './multiple-intelligences.strategy'
@@ -34,7 +36,7 @@ export class ScoringStrategyFactory {
 
     const strategy = strategyMap.get(type)
     if (!strategy) {
-      throw new BadRequestException(`Unknown assessment type: ${type}`)
+      throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, `Unknown assessment type: ${type}`)
     }
     return strategy
   }

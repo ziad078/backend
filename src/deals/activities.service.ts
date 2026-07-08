@@ -1,5 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { Repository } from 'typeorm'
 import { CreateActivityDto } from './dto/create-activity.dto'
 import { UpdateActivityDto } from './dto/update-activity.dto'
@@ -31,7 +33,7 @@ export class ActivitiesService {
   async findOne(id: string): Promise<Activity> {
     const activity = await this.activitiesRepo.findOne({ where: { id } })
     if (!activity) {
-      throw new NotFoundException('Activity not found')
+      throw ApiException.notFound(ApiErrorCodes.ACTIVITY_NOT_FOUND, 'Activity not found')
     }
     return activity
   }
@@ -50,7 +52,7 @@ export class ActivitiesService {
       order: { deals: { createdAt: 'DESC' } },
     })
     if (!activity) {
-      throw new NotFoundException('Activity not found')
+      throw ApiException.notFound(ApiErrorCodes.ACTIVITY_NOT_FOUND, 'Activity not found')
     }
     return activity
   }
@@ -70,7 +72,7 @@ export class ActivitiesService {
       where: { activity: { id: activity.id } },
     })
     if (hasDeals) {
-      throw new BadRequestException('Cannot delete activity because it has related deals')
+      throw ApiException.badRequest(ApiErrorCodes.ACTIVITY_HAS_DEALS, 'Cannot delete activity because it has related deals')
     }
 
     await this.activitiesRepo.remove(activity)

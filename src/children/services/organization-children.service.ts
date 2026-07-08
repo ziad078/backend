@@ -5,6 +5,8 @@ import { OrganizationChild } from '../entities/organization-child.entity'
 import { ChildAccessPolicy } from '../policies/child-access.policy'
 import { AuditLoggingService } from 'src/common/services/audit-logging.service'
 import { Actor } from 'src/common/policies/base-policy.interface'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 
 @Injectable()
 export class OrganizationChildrenService {
@@ -18,7 +20,7 @@ export class OrganizationChildrenService {
   async create(dto: any, actor: Actor): Promise<OrganizationChild> {
     const policyResult = this.childAccessPolicy.canCreate(actor)
     if (!policyResult.allowed) {
-      throw new Error(policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
     }
 
     const child = this.orgChildRepo.create(dto)
@@ -44,12 +46,12 @@ export class OrganizationChildrenService {
     })
 
     if (!child) {
-      throw new Error('Organization child not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
     }
 
     const policyResult = this.childAccessPolicy.canView(actor, child)
     if (!policyResult.allowed) {
-      throw new Error(policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
     }
 
     return child
@@ -96,7 +98,7 @@ export class OrganizationChildrenService {
   async findByOrganization(organizationId: string, actor: Actor): Promise<OrganizationChild[]> {
     const policyResult = this.childAccessPolicy.canListOrganizationChildren(actor)
     if (!policyResult.allowed) {
-      throw new Error(policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
     }
 
     return this.orgChildRepo.find({

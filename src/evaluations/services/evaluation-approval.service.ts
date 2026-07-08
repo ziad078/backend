@@ -1,9 +1,6 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { EventEmitter2 } from 'eventemitter2'
 import { DataSource } from 'typeorm'
 import { UserRole } from 'src/common/enums/role.enum'
@@ -44,15 +41,15 @@ export class EvaluationApprovalService {
       })
 
       if (!attempt) {
-        throw new NotFoundException('Attempt not found')
+        throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
       }
 
       if (attempt.status === EvaluationAttemptStatus.APPROVED) {
-        throw new ConflictException('Attempt already approved')
+        throw ApiException.conflict(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Attempt already approved')
       }
 
       if (attempt.status !== EvaluationAttemptStatus.SUBMITTED) {
-        throw new BadRequestException('Only submitted attempts can be approved')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Only submitted attempts can be approved')
       }
 
       const existingApproval = await approvalRepo.findOne({
@@ -61,7 +58,7 @@ export class EvaluationApprovalService {
       })
 
       if (existingApproval) {
-        throw new ConflictException('Attempt already approved')
+        throw ApiException.conflict(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Attempt already approved')
       }
 
       const approval = await approvalRepo.save(

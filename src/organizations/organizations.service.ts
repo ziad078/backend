@@ -1,9 +1,6 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { UpdateOrganizationDto } from './dto/update-organization.dto'
 import { Organization } from './entities/organization.entity'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -40,7 +37,7 @@ export class OrganizationsService {
   async findOneOrFail(id: string): Promise<Organization> {
     const org = await this.organizationRepository.findOneBy({ id })
     if (!org) {
-      throw new NotFoundException(`organization with this id ${id} is not found`)
+      throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, `Organization with this id ${id} is not found`)
     }
     return org
   }
@@ -48,7 +45,7 @@ export class OrganizationsService {
   async assertOrganizationApproved(organizationId: string): Promise<Organization> {
     const org = await this.findOneOrFail(organizationId)
     if (org.approvalStatus !== ApprovalStatus.APPROVED) {
-      throw new ForbiddenException('Organization must be approved before performing this operation')
+      throw ApiException.forbidden(ApiErrorCodes.ORGANIZATION_NOT_APPROVED, 'Organization must be approved before performing this operation')
     }
     return org
   }
@@ -63,7 +60,7 @@ export class OrganizationsService {
       .getOne()
 
     if (!org) {
-      throw new NotFoundException(`Parent with id ${id} is not related to any organization`)
+      throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, `Parent with id ${id} is not related to any organization`)
     }
 
     return OrganizationResponseDto.fromEntity(org)
@@ -74,7 +71,7 @@ export class OrganizationsService {
       where: { owner: { id: ownerId } },
     })
     if (!org) {
-      throw new NotFoundException(`organization for this owner with ${ownerId} is not found`)
+      throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, `Organization for this owner with ${ownerId} is not found`)
     }
     return org
   }
@@ -87,7 +84,7 @@ export class OrganizationsService {
   assertCanAccessOrganization(org: Organization, actor: JwtRequestUser) {
     if (hasRole(actor.roles, UserRole.ADMIN)) return
     if (org.ownerId === actor.userId) return
-    throw new ForbiddenException('You do not have access to this organization')
+    throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You do not have access to this organization')
   }
 
   async isOrgMember(userId: string, orgId: string): Promise<boolean> {
@@ -113,7 +110,7 @@ export class OrganizationsService {
     const org = await this.findOneOrFail(id)
 
     if (org.approvalStatus === ApprovalStatus.APPROVED) {
-      throw new ConflictException('Organization is already approved')
+      throw ApiException.conflict(ApiErrorCodes.ORGANIZATION_ALREADY_APPROVED, 'Organization is already approved')
     }
 
     org.approvalStatus = ApprovalStatus.APPROVED
@@ -135,7 +132,7 @@ export class OrganizationsService {
     const org = await this.findOneOrFail(id)
 
     if (org.approvalStatus === ApprovalStatus.REJECTED) {
-      throw new ConflictException('Organization is already rejected')
+      throw ApiException.conflict(ApiErrorCodes.ORGANIZATION_ALREADY_REJECTED, 'Organization is already rejected')
     }
 
     org.approvalStatus = ApprovalStatus.REJECTED
@@ -167,7 +164,7 @@ export class OrganizationsService {
   async remove(id: string) {
     const result = await this.organizationRepository.delete(id)
     if (result.affected === 0) {
-      throw new NotFoundException('Organization not found')
+      throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found')
     }
     return { message: 'Deleted successfully' }
   }

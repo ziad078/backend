@@ -1,9 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-  ForbiddenException,
-} from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { CreateGradeDto } from './dto/create-grade.dto'
 import { UpdateGradeDto } from './dto/update-grade.dto'
 import { Grade } from './entities/grade.entity'
@@ -25,7 +22,7 @@ export class GradesService {
 
     const ownedOrg = await this.organizationsService.findByOwner(currentUser.userId)
     if (ownedOrg.id !== org.id) {
-      throw new ForbiddenException('You can only create grades for your own organization')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only create grades for your own organization')
     }
 
     await this.organizationsService.assertOrganizationApproved(org.id)
@@ -53,7 +50,7 @@ export class GradesService {
       where: { id },
       relations: { classes: { children: true } },
     })
-    if (!grade) throw new NotFoundException(`Grade with ID ${id} not found`)
+    if (!grade) throw ApiException.notFound(ApiErrorCodes.GRADE_NOT_FOUND, `Grade with ID ${id} not found`)
     return {
       grade: {
         id: grade.id,
@@ -67,7 +64,7 @@ export class GradesService {
   }
   async findOneOrFail(id: string) {
     const grade = await this.gradeRepo.findOneBy({ id })
-    if (!grade) throw new NotFoundException(`Grade with ID ${id} not found`)
+    if (!grade) throw ApiException.notFound(ApiErrorCodes.GRADE_NOT_FOUND, `Grade with ID ${id} not found`)
     return grade
   }
 
@@ -75,7 +72,7 @@ export class GradesService {
     const organization = await this.organizationsService.findOneOrFail(orgId)
 
     if (!(await this.organizationsService.isOrgMember(currentUser.userId, orgId))) {
-      throw new UnauthorizedException("you aren't allowed to access these data")
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, "You are not allowed to access these data")
     }
 
     const grades = await this.gradeRepo.find({
@@ -120,14 +117,14 @@ export class GradesService {
 
     const result = await this.gradeRepo.delete(id)
     if (result.affected === 0) {
-      throw new NotFoundException('Grade not found')
+      throw ApiException.notFound(ApiErrorCodes.GRADE_NOT_FOUND, 'Grade not found')
     }
     return { message: 'Deleted successfully' }
   }
 
   private async assertCanManageGrade(grade: Grade, currentUser: JwtRequestUser) {
     if (!(await this.organizationsService.isOrgMember(currentUser.userId, grade.organizationId))) {
-      throw new ForbiddenException('You do not have access to this grade')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You do not have access to this grade')
     }
     await this.organizationsService.assertOrganizationApproved(grade.organizationId)
   }

@@ -8,8 +8,9 @@ import {
   ParseUUIDPipe,
   Query,
   Req,
-  ForbiddenException,
 } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { OrganizationsService } from './organizations.service'
 import { UpdateOrganizationDto } from './dto/update-organization.dto'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
@@ -62,7 +63,7 @@ export class OrganizationsController {
   ) {
     const isAdmin = hasRole(req.user.roles, UserRole.ADMIN)
     if (!isAdmin && req.user.userId !== ownerId) {
-      throw new ForbiddenException('You can only view your own organization')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only view your own organization')
     }
     return this.organizationsService.findByOwnerResponse(ownerId)
   }

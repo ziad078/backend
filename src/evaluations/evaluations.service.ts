@@ -1,9 +1,6 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { InjectRepository } from '@nestjs/typeorm'
 import { DataSource, Repository } from 'typeorm'
 import { UserRole } from 'src/common/enums/role.enum'
@@ -70,7 +67,7 @@ export class EvaluationsService {
 
       const duplicatedCodes = this.findDuplicates(dto.dimensions.map((dimension) => dimension.code))
       if (duplicatedCodes.length > 0) {
-        throw new BadRequestException(`Duplicate dimension codes: ${duplicatedCodes.join(', ')}`)
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_DUPLICATE_DIMENSIONS, `Duplicate dimension codes: ${duplicatedCodes.join(', ')}`)
       }
 
       const evaluation = await evaluationRepo.save(
@@ -103,7 +100,7 @@ export class EvaluationsService {
         const dimension = dimensionByCode.get(questionDto.dimensionCode)
 
         if (!dimension) {
-          throw new BadRequestException(`Dimension code "${questionDto.dimensionCode}" not found`)
+          throw ApiException.badRequest(ApiErrorCodes.EVALUATION_DIMENSION_MISSING, `Dimension code "${questionDto.dimensionCode}" not found`)
         }
 
         await questionRepo.save(
@@ -177,7 +174,7 @@ export class EvaluationsService {
     })
 
     if (!evaluation) {
-      throw new NotFoundException('Evaluation not found')
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
     }
 
     return evaluation
@@ -206,7 +203,7 @@ export class EvaluationsService {
     })
 
     if (!evaluation) {
-      throw new NotFoundException('Evaluation not found')
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
     }
 
     return {
@@ -245,7 +242,7 @@ export class EvaluationsService {
     this.access.assertHasRole(actor, [UserRole.PARENT])
 
     const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
-    if (!parentProfile) throw new ForbiddenException('Parent profile not found')
+    if (!parentProfile) throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
 
     // Try to find as private child first
     const privateChild = await this.privateChildrenRepository.findOne({
@@ -276,7 +273,7 @@ export class EvaluationsService {
     })
 
     if (!orgChild) {
-      throw new ForbiddenException('Child not found for this parent')
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found for this parent')
     }
 
     const age = this.calculateAge(orgChild.birthDate)
@@ -349,7 +346,7 @@ export class EvaluationsService {
       },
     })
 
-    if (!attempt) throw new NotFoundException('Attempt not found')
+    if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
 
     this.access.assertCanReadAttempt(attempt, scopedActor)
 
@@ -378,7 +375,7 @@ export class EvaluationsService {
           parent: true,
         },
       })
-      if (!attempt) throw new NotFoundException('Attempt not found')
+      if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
       this.access.assertCanReadAttempt(attempt, scopedActor)
     }
 
@@ -425,14 +422,14 @@ export class EvaluationsService {
     const isParent = actor.roles.includes(UserRole.PARENT)
 
     if (!isAdmin && !isParent) {
-      throw new ForbiddenException('Insufficient role')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'Insufficient role')
     }
 
     const parentProfile = isParent
       ? await this.parentProfilesService.findByUserId(actor.userId)
       : null
 
-    if (isParent && !parentProfile) throw new ForbiddenException('Parent profile not found')
+    if (isParent && !parentProfile) throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
 
     const parentProfileId = isParent && parentProfile ? parentProfile.id : undefined
 
@@ -462,7 +459,7 @@ export class EvaluationsService {
     })
 
     if (!orgChild) {
-      throw new NotFoundException('Child not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
     }
 
     const attemptWhere: any = { organizationChildId: childId }

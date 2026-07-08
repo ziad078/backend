@@ -1,11 +1,6 @@
-import {
-  forwardRef,
-  Inject,
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-} from '@nestjs/common'
+import { forwardRef, Inject, Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { CreateClassDto } from './dto/create-class.dto'
 import { UpdateClassDto } from './dto/update-class.dto'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -39,7 +34,7 @@ export class ClassesService {
     await this.orgService.assertOrganizationApproved(organization.id)
 
     if (grade.grade.organizationId !== organization.id) {
-      throw new ForbiddenException('Grade does not belong to your organization')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'Grade does not belong to your organization')
     }
 
     const cls = this.classesRepo.create({
@@ -52,7 +47,7 @@ export class ClassesService {
         where: { id: teacherId },
       })
       if (!teacher) {
-        throw new NotFoundException(`Teacher with ID ${teacherId} not found`)
+        throw ApiException.notFound(ApiErrorCodes.TEACHER_NOT_FOUND, `Teacher with ID ${teacherId} not found`)
       }
       cls.teacher = teacher
     }
@@ -77,7 +72,7 @@ export class ClassesService {
       where: { id },
       relations: ['grade', 'children', 'teacher'],
     })
-    if (!cls) throw new NotFoundException(`class with ID ${id} not found`)
+    if (!cls) throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND, `Class with ID ${id} not found`)
     return {
       gradeName: cls.grade.name,
       id: cls.id,
@@ -88,7 +83,7 @@ export class ClassesService {
 
   async findClassesByOrg(orgId: string, currentUser: JwtRequestUser) {
     if (!(await this.orgService.isOrgMember(currentUser.userId, orgId))) {
-      throw new ForbiddenException('You do not have access to this organization')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You do not have access to this organization')
     }
 
     const org = await this.orgService.findOneOrFail(orgId)
@@ -121,7 +116,7 @@ export class ClassesService {
       where: { id },
       relations: { organization: true },
     })
-    if (!cls) throw new NotFoundException(`class with ID ${id} not found`)
+    if (!cls) throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND, `Class with ID ${id} not found`)
     return cls
   }
 
@@ -153,7 +148,7 @@ export class ClassesService {
         where: { id: teacherId },
       })
       if (!teacher) {
-        throw new NotFoundException(`Teacher with ID ${teacherId} not found`)
+        throw ApiException.notFound(ApiErrorCodes.TEACHER_NOT_FOUND, `Teacher with ID ${teacherId} not found`)
       }
       cls.teacher = teacher
     }
@@ -168,7 +163,7 @@ export class ClassesService {
     const result = await this.classesRepo.delete({ id })
 
     if (result.affected === 0) {
-      throw new NotFoundException('Class not found')
+      throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND, 'Class not found')
     }
 
     return { message: 'Deleted successfully' }
@@ -181,7 +176,7 @@ export class ClassesService {
 
     const child = await this.childrenService.findOneOrFail(childId)
     if (child instanceof PrivateChild) {
-      throw new BadRequestException('Cannot assign private child to class')
+      throw ApiException.badRequest(ApiErrorCodes.CHILD_INVALID_TYPE, 'Cannot assign private child to class')
     }
     ;(child as any).class = cls
     await this.childrenService.save(child)
@@ -191,7 +186,7 @@ export class ClassesService {
   async getChildrenInClass(clsId: string, currentUser: JwtRequestUser) {
     const cls = await this.findOneOrFail(clsId)
     if (!(await this.orgService.isOrgMember(currentUser.userId, cls.organization.id))) {
-      throw new ForbiddenException('You do not have access to this class')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You do not have access to this class')
     }
     const full = await this.findOne(clsId)
     return full.children
@@ -199,7 +194,7 @@ export class ClassesService {
 
   private async assertCanManageClass(cls: Class, currentUser: JwtRequestUser) {
     if (!(await this.orgService.isOrgMember(currentUser.userId, cls.organization.id))) {
-      throw new ForbiddenException('You do not have access to this class')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You do not have access to this class')
     }
     await this.orgService.assertOrganizationApproved(cls.organization.id)
   }

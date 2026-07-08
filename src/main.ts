@@ -1,45 +1,25 @@
 import { NestFactory } from '@nestjs/core'
 import { NestExpressApplication } from '@nestjs/platform-express'
 import { AppModule } from './app.module'
-import { BadRequestException, ValidationPipe } from '@nestjs/common'
+import { ValidationPipe } from '@nestjs/common'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import type { ValidationError } from 'class-validator'
 import { AllExceptionsFilter } from './common/filters/all-exception.filter'
+import { ValidationErrorMapper } from './common/mappers/validation-error.mapper'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   })
 
-  const flattenValidationErrors = (
-    errors: ValidationError[],
-    parentPath = '',
-    out: Record<string, string> = {},
-  ) => {
-    for (const err of errors) {
-      const path = parentPath ? `${parentPath}.${err.property}` : err.property
-
-      const constraints = Object.values(err.constraints ?? {})
-      if (constraints.length > 0) {
-        out[path] = constraints[0]
-      }
-
-      if (err.children && err.children.length > 0) {
-        flattenValidationErrors(err.children, path, out)
-      }
-    }
-
-    return out
-  }
-
   app.useGlobalFilters(new AllExceptionsFilter())
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
       exceptionFactory: (errors) => {
-        return new BadRequestException(flattenValidationErrors(errors))
+        return ValidationErrorMapper.fromValidationErrors(errors)
       },
     }),
   )
@@ -82,7 +62,7 @@ async function bootstrap() {
     .addTag('admin-private-attempts', 'Admin approval of private extra attempts')
     .addTag('owner-evaluation-results', 'Organization owner evaluation reports and dashboards')
     .addTag('deals', 'Deal/opportunity marketplace')
-    .addTag('proposals', 'Enricher proposal management')
+    .addTag('proposals', 'Enricher proposal Management')
     .addTag('activities', 'Activity categories for deals')
     .addTag('payments', 'Payment processing via Moyasar')
     .addTag('notifications', 'In-app and email notifications')

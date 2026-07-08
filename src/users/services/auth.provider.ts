@@ -1,10 +1,12 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import bcrypt from 'bcrypt'
 import { UserRole } from 'src/common/enums/role.enum'
 import { SessionService } from 'src/session/session.service'
 import { User } from 'src/users/entities/user.entity'
 import { DataSource } from 'typeorm'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { ParentSignupDto } from '../dto/parent-signup.dto'
 import { AccountType } from 'src/common/enums/account-type.enum'
 import { Role } from 'src/users/entities/user-roles.entity'
@@ -54,14 +56,14 @@ export class AuthProvider {
         type: string
       }>(token)
       if (payload.type !== 'email_verification') {
-        throw new BadRequestException('Invalid token type')
+        throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID, 'Invalid token type')
       }
 
       const userId = payload.userId ?? payload.sub
       const user = await this.usersService.findById(userId)
 
       if (!user) {
-        throw new NotFoundException('User not found')
+        throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
       }
 
       user.isEmailVerified = true
@@ -69,7 +71,7 @@ export class AuthProvider {
 
       return { message: 'Email verified successfully', ok: true }
     } catch {
-      throw new BadRequestException('Invalid or expired token')
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID, 'Invalid or expired token')
     }
   }
 

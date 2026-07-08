@@ -1,13 +1,7 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bull'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import type { JobOptions, Queue } from 'bull'
 import { InjectRepository } from '@nestjs/typeorm'
 import { DataSource, QueryFailedError, Repository } from 'typeorm'
@@ -91,9 +85,7 @@ export class PaymentsService {
       PaymentProviderEnum.MOYASAR
     const code = requested ?? fallback
     if (code !== this.provider.providerCode) {
-      throw new BadRequestException(
-        `Payment provider "${code}" is not active yet. Active provider: ${this.provider.providerCode}`,
-      )
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_INVALID_PROVIDER, `Payment provider "${code}" is not active yet. Active provider: ${this.provider.providerCode}`)
     }
     return code
   }
@@ -125,7 +117,7 @@ export class PaymentsService {
     const input = this.normalizeCreatePaymentDto(dto)
     const currency = (input.currency ?? 'SAR').toUpperCase()
     if (currency !== 'SAR') {
-      throw new BadRequestException('Only SAR currency is supported')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_CURRENCY_NOT_SUPPORTED, 'Only SAR currency is supported')
     }
 
     const providerCode = this.resolveProvider(input.provider)
@@ -138,7 +130,7 @@ export class PaymentsService {
       .andWhere('p."userId" = :userId', { userId })
       .getCount()
     if (childExists < 1) {
-      throw new ForbiddenException('Child not found for this parent')
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found for this parent')
     }
 
     const metadata: PaymentMetadata = { privateChildId: input.privateChildId }
@@ -240,20 +232,20 @@ export class PaymentsService {
     try {
       this.provider.verifyWebhookSignature(rawBody, signatureHeader)
     } catch (err) {
-      if (err instanceof UnauthorizedException) throw err
-      throw new UnauthorizedException('Invalid webhook')
+      if (err instanceof ApiException) throw err
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Invalid webhook')
     }
 
     let parsed: unknown
     try {
       parsed = JSON.parse(rawBody.toString('utf8'))
     } catch {
-      throw new BadRequestException('Invalid JSON webhook body')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_INVALID_JSON, 'Invalid JSON webhook body')
     }
 
     const providerPaymentId = this.extractProviderPaymentIdFromBody(parsed)
     if (!providerPaymentId) {
-      throw new BadRequestException('Webhook payload missing payment identifier')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_WEBHOOK_MISSING, 'Webhook payload missing payment identifier')
     }
 
     const payloadHash = createHash('sha256').update(rawBody).digest('hex')
@@ -444,19 +436,19 @@ export class PaymentsService {
   }> {
     const payment = await this.payments.findOne({ where: { id: paymentId } })
     if (!payment) {
-      throw new NotFoundException('Payment not found')
+      throw ApiException.notFound(ApiErrorCodes.PAYMENT_NOT_FOUND, 'Payment not found')
     }
     if (payment.userId !== userId) {
-      throw new ForbiddenException('Payment does not belong to this user')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'Payment does not belong to this user')
     }
     if (
       payment.status !== PaymentStatusEnum.FAILED &&
       payment.status !== PaymentStatusEnum.EXPIRED
     ) {
-      throw new BadRequestException('Only failed or expired payments can be retried')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_FAILED, 'Only failed or expired payments can be retried')
     }
     if (payment.retryCount >= payment.maxRetries) {
-      throw new BadRequestException('Maximum retries exceeded')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_MAX_RETRIES, 'Maximum retries exceeded')
     }
 
     return this.executePaymentRetry(payment)

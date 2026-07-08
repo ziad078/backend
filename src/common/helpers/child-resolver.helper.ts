@@ -1,5 +1,7 @@
 import { OrganizationChild } from 'src/children/entities/organization-child.entity'
 import { PrivateChild } from 'src/children/entities/private-child.entity'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 
 export type Child = OrganizationChild | PrivateChild
 
@@ -32,7 +34,10 @@ export function ensureSingleChildType(
   privateChildId?: string | null,
 ): void {
   if (organizationChildId && privateChildId) {
-    throw new Error('A child can only be one type: either organization or private, not both')
+    throw ApiException.badRequest(
+      ApiErrorCodes.CHILD_INVALID_TYPE,
+      'A child can only be one type: either organization or private, not both',
+    )
   }
 }
 

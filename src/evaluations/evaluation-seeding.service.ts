@@ -1,4 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Evaluation } from './entities/evaluation.entity'
@@ -128,7 +130,10 @@ export class EvaluationSeedingService implements OnModuleInit {
     for (const [index, questionSeed] of seed.questions.entries()) {
       const dimension = dimensions.get(questionSeed.dimensionCode)
       if (!dimension) {
-        throw new Error(`Missing dimension "${questionSeed.dimensionCode}" for ${seed.title}`)
+        throw ApiException.internal(
+          `Missing dimension "${questionSeed.dimensionCode}" for ${seed.title}`,
+          { dimensionCode: questionSeed.dimensionCode, evaluationTitle: seed.title },
+        )
       }
 
       const question = await this.questionRepo.save(

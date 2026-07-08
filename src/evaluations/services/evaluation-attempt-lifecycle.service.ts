@@ -1,10 +1,6 @@
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common'
+import { Injectable } from '@nestjs/common'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { InjectRepository } from '@nestjs/typeorm'
 import { EventEmitter2 } from 'eventemitter2'
 import { DataSource, Repository } from 'typeorm'
@@ -43,12 +39,12 @@ export class EvaluationAttemptLifecycleService {
     })
 
     if (!evaluation) {
-      throw new NotFoundException('Evaluation not found')
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
     }
 
     const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
     if (!parentProfile) {
-      throw new ForbiddenException('Parent profile not found for user')
+      throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found for user')
     }
 
     let child: OrganizationChild | PrivateChild
@@ -71,7 +67,7 @@ export class EvaluationAttemptLifecycleService {
       })
 
       if (!orgChild || orgChild.parent.id !== parentProfile.id) {
-        throw new ForbiddenException('Child not found for this parent')
+        throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found for this parent')
       }
 
       child = orgChild
@@ -83,7 +79,7 @@ export class EvaluationAttemptLifecycleService {
       evaluation.institutionId != null &&
       evaluation.institutionId !== (child as OrganizationChild).class?.organization?.id
     ) {
-      throw new ForbiddenException('Evaluation does not belong to child institution')
+      throw ApiException.forbidden(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation does not belong to child institution')
     }
 
     const age = this.calculateAge(child.birthDate)
@@ -91,7 +87,7 @@ export class EvaluationAttemptLifecycleService {
       (evaluation.ageFrom != null && age < evaluation.ageFrom) ||
       (evaluation.ageTo != null && age > evaluation.ageTo)
     ) {
-      throw new ForbiddenException('Evaluation is not suitable for child age')
+      throw ApiException.forbidden(ApiErrorCodes.EVALUATION_NOT_SUITABLE_AGE, 'Evaluation is not suitable for child age')
     }
 
     const expiresAt = this.resolveExpiresAt(dto)
@@ -128,9 +124,7 @@ export class EvaluationAttemptLifecycleService {
       )
 
       if (inProgress) {
-        throw new BadRequestException(
-          'Finish or submit the current attempt before starting another',
-        )
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Finish or submit the current attempt before starting another')
       }
 
       const count = attempts.length
@@ -144,7 +138,7 @@ export class EvaluationAttemptLifecycleService {
           attempts: count,
           reason: 'already_approved',
         }
-        throw new BadRequestException('Retake is not allowed after approval')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS, 'Retake is not allowed after approval')
       }
 
       let entitlementId: string | null = null
@@ -157,9 +151,7 @@ export class EvaluationAttemptLifecycleService {
         )
 
         if (!entitlement) {
-          throw new BadRequestException(
-            'No evaluation slot is available. Open main slot, retake, request extra, complete payment, or wait for admin approval.',
-          )
+          throw ApiException.badRequest(ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND, 'No evaluation slot is available. Open main slot, retake, request extra, complete payment, or wait for admin approval.')
         }
 
         entitlementId = entitlement.id
@@ -171,7 +163,7 @@ export class EvaluationAttemptLifecycleService {
           attempts: count,
           reason: 'max_attempts',
         }
-        throw new ConflictException('Maximum attempts reached')
+        throw ApiException.conflict(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS, 'Maximum attempts reached')
       }
 
       const createData: any = {
@@ -209,18 +201,18 @@ export class EvaluationAttemptLifecycleService {
 
   private resolveExpiresAt(dto: StartEvaluationDto): Date | null {
     if (dto.expiresAt && dto.expiresInSeconds) {
-      throw new BadRequestException('Provide either expiresAt or expiresInSeconds')
+      throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, 'Provide either expiresAt or expiresInSeconds')
     }
 
     if (dto.expiresAt) {
       const d = new Date(dto.expiresAt)
 
       if (Number.isNaN(d.getTime())) {
-        throw new BadRequestException('Invalid expiresAt')
+        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, 'Invalid expiresAt')
       }
 
       if (d.getTime() <= Date.now()) {
-        throw new BadRequestException('expiresAt must be in the future')
+        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, 'expiresAt must be in the future')
       }
 
       return d

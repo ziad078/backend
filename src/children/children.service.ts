@@ -1,12 +1,7 @@
 import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
   forwardRef,
   Inject,
   Injectable,
-  NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common'
 import { CreateChildDto, CreateChildWithParentDto } from './dto/create-child.dto'
 import { CreateChildByParentDto } from './dto/create-child-by-parent.dto'
@@ -26,6 +21,8 @@ import { TransferService } from './transfer.service'
 import { ChildAccessPolicy } from './services/child-access-policy.service'
 import { ParentProfilesService } from 'src/users/services/parent-profiles.service'
 import { ParentOrganizationSource } from 'src/users/enums/parent-organization-source.enum'
+import { ApiException } from 'src/common/exceptions/api.exception'
+import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 
 export type CreateChildResponse = {
   status: 'CREATED' | 'TRANSFER_REQUIRED'
@@ -79,7 +76,7 @@ export class ChildrenService {
           title: 'Child limit reached',
           message: `You have reached the maximum of ${parentProfile.maxChildren} children on your account.`,
         })
-        throw new BadRequestException('Child limit reached')
+        throw ApiException.badRequest(ApiErrorCodes.CHILD_LIMIT_REACHED, 'Child limit reached')
       }
 
       // Create private child
@@ -215,7 +212,7 @@ export class ChildrenService {
       if (
         !(await this.organizationsService.isOrgMember(currentUser.userId, currentOrganizationId))
       ) {
-        throw new ForbiddenException('You are not allowed to add children to this class')
+        throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, 'You are not allowed to add children to this class')
       }
 
       await this.organizationsService.assertOrganizationApproved(currentOrganizationId)
@@ -258,9 +255,7 @@ export class ChildrenService {
           title: 'Child limit reached',
           message: `Parent has reached the maximum of ${parentProfile.maxChildren} children on their account.`,
         })
-        throw new ForbiddenException(
-          `Parent has reached the child limit (${parentProfile.maxChildren}). Please request additional capacity.`,
-        )
+        throw ApiException.forbidden(ApiErrorCodes.CHILD_LIMIT_REACHED, 'Parent has reached the child limit')
       }
 
       // Check for existing organization child by birthDate and ParentProfile
@@ -274,7 +269,7 @@ export class ChildrenService {
 
       if (existingChild) {
         if (existingChild.organization.id === currentOrganizationId) {
-          throw new ConflictException('Child already exists in your school')
+          throw ApiException.conflict(ApiErrorCodes.CHILD_DUPLICATE, 'Child already exists in your school')
         }
 
         // Transfer flow: child exists in another org for same parent
@@ -337,7 +332,7 @@ export class ChildrenService {
 
   async findAllByOrganization(orgId: string, currentUser: JwtRequestUser) {
     if (!(await this.organizationsService.isOrgMember(currentUser.userId, orgId))) {
-      throw new UnauthorizedException("you aren't allowed to access these data")
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You are not allowed to access these data')
     }
 
     const children = await this.organizationChildrenRepository.find({
@@ -385,7 +380,7 @@ export class ChildrenService {
     const privateChild = await this.privateChildrenRepository.findOneBy({ id })
     if (privateChild) return privateChild
 
-    throw new NotFoundException('child not found')
+    throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
   }
 
   async save(child: OrganizationChild | PrivateChild) {
