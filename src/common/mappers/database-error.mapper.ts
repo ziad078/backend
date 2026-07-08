@@ -5,30 +5,73 @@ import { ApiException } from '../exceptions/api.exception'
 import { ApiErrorCodes } from '../enums/api-error.enum'
 import { PgErrorCode } from '../enums/database-error.enum'
 
-const DATABASE_CONSTRAINTS: Record<
+export const DATABASE_CONSTRAINTS: Record<
   string,
   {
     code: ApiErrorCodes
     message: string
   }
 > = {
-  users_email_key: {
+  // ================= Users =================
+
+  users_email_unique: {
     code: ApiErrorCodes.EMAIL_ALREADY_EXISTS,
     message: 'Email already exists',
   },
-}
+
+  users_phone_unique: {
+    code: ApiErrorCodes.PHONE_ALREADY_EXISTS,
+    message: 'Phone number already exists',
+  },
+
+  // ================= Organizations =================
+
+  organizations_slug_unique: {
+    code: ApiErrorCodes.ORGANIZATION_ALREADY_EXISTS,
+    message: 'Organization already exists',
+  },
+
+  // ================= Grades =================
+
+  grades_name_organization_unique: {
+    code: ApiErrorCodes.GRADE_ALREADY_EXISTS,
+    message: 'Grade already exists',
+  },
+
+  // ================= Classes =================
+
+  classes_name_grade_unique: {
+    code: ApiErrorCodes.CLASS_ALREADY_EXISTS,
+    message: 'Class already exists',
+  },
+
+  // ================= Subjects =================
+
+  subjects_name_organization_unique: {
+    code: ApiErrorCodes.SUBJECT_ALREADY_EXISTS,
+    message: 'Subject already exists',
+  },
+} satisfies Record<
+  string,
+  {
+    code: ApiErrorCodes
+    message: string
+  }
+>
 
 export class DatabaseErrorMapper {
   static map(exception: QueryFailedError<any>): ApiException {
-    const driverError = exception as QueryFailedError & {
-      code?: string
+    const driverError = exception.driverError as {
+      code: string
       detail?: string
       constraint?: string
       table?: string
       column?: string
+      schema?: string
+      hint?: string
     }
 
-    switch (driverError.code) {
+    switch (driverError.code as PgErrorCode) {
       case PgErrorCode.UNIQUE_VIOLATION:
         return DatabaseErrorMapper.handleUniqueViolation(driverError)
 
@@ -69,16 +112,27 @@ export class DatabaseErrorMapper {
     }
   }
 
-  private static handleUniqueViolation(
-    driverError: QueryFailedError & { constraint?: string; detail?: string; table?: string },
-  ): ApiException {
+  private static handleUniqueViolation(driverError: {
+    code: string
+    detail?: string
+    constraint?: string
+    table?: string
+    column?: string
+    schema?: string
+    hint?: string
+  }): ApiException {
     const constraint = driverError.constraint?.toLowerCase() ?? ''
+
+    const config = DATABASE_CONSTRAINTS[constraint]
 
     return new ApiException(
       HttpStatus.CONFLICT,
-      DATABASE_CONSTRAINTS[constraint].code ?? ApiErrorCodes.CONFLICT,
-      DATABASE_CONSTRAINTS[constraint].message ?? `A record with this value already exists`,
-      { constraint: driverError.constraint, table: driverError.table },
+      config?.code ?? ApiErrorCodes.CONFLICT,
+      config?.message ?? 'A record with this value already exists',
+      {
+        constraint: driverError.constraint,
+        table: driverError.table,
+      },
     )
   }
 

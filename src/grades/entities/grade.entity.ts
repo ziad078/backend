@@ -11,6 +11,7 @@ import {
 } from 'typeorm'
 
 @Entity('grades')
+@Index('grades_name_organization_unique', ['name', 'organizationId'], { unique: true })
 export class Grade {
   @PrimaryGeneratedColumn('uuid')
   id: string
