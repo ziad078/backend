@@ -48,7 +48,7 @@ export class EvaluationSlotService {
     })
 
     if (!child) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND, 'Private child not found for this parent')
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
     return child
@@ -61,7 +61,7 @@ export class EvaluationSlotService {
       const usage = await this.attemptUsageService.getUsage(child.id, parentProfile.id, manager)
 
       if (usage.totalAttempts > 0) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Main attempt already started or completed for this child')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       const repo = manager.getRepository(EvaluationSlot)
@@ -102,11 +102,11 @@ export class EvaluationSlotService {
       const usage = await this.attemptUsageService.getUsage(childId, parentProfile.id, manager)
 
       if (usage.totalAttempts < 1) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Complete the main attempt before retake')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       if (usage.hasRetake) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS, 'Retake already used')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS)
       }
 
       const repo = manager.getRepository(EvaluationSlot)
@@ -149,7 +149,7 @@ export class EvaluationSlotService {
       const usage = await this.attemptUsageService.getUsage(childId, parentProfile.id, manager)
 
       if (usage.totalAttempts < 2 || !usage.hasRetake) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS, 'Both free attempts must be completed before requesting an extra attempt')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS)
       }
 
       const repo = manager.getRepository(EvaluationSlot)
@@ -168,11 +168,11 @@ export class EvaluationSlotService {
         pending.status !== SlotStatus.COMPLETED &&
         pending.status !== SlotStatus.REQUESTED
       ) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'An extra attempt is already in progress or awaiting payment')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       if (pending && pending.status === SlotStatus.REQUESTED) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Extra attempt already awaiting approval')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       const saved = await repo.save(
@@ -204,7 +204,7 @@ export class EvaluationSlotService {
         },
       })
 
-      if (!slot) throw ApiException.notFound(ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND, 'Attempt request not found')
+      if (!slot) throw ApiException.notFound(ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND)
 
       const slotWithRelations = await repo.findOneOrFail({
         where: { id: slot.id },
@@ -215,13 +215,13 @@ export class EvaluationSlotService {
       })
 
       if (slotWithRelations.kind !== SlotKind.EXTRA) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Not an extra attempt request')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
       if (slotWithRelations.status !== SlotStatus.REQUESTED) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Extra attempt is not awaiting approval')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
       if (!slotWithRelations.requiresApproval) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Extra attempt does not require approval')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       slotWithRelations.transitionTo(SlotStatus.AWAITING_PAYMENT)
@@ -259,12 +259,12 @@ export class EvaluationSlotService {
       relations: { privateChild: true },
     })
 
-    if (!slot) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
+    if (!slot) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
     if (slot.status !== SlotStatus.AWAITING_PAYMENT) {
-      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_FAILED, 'Payment is not required for this attempt')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_FAILED)
     }
     if (!slot.paymentId) {
-      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_NOT_FOUND, 'No payment record linked to this attempt')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_NOT_FOUND)
     }
 
     const paymentUserId = await this.parentProfilesService.getUserIdForParentProfile(
@@ -310,7 +310,7 @@ export class EvaluationSlotService {
       lock: { mode: 'pessimistic_write' },
     })
 
-    if (!row) throw ApiException.notFound(ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND, 'Ready entitlement not found')
+    if (!row) throw ApiException.notFound(ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND)
 
     row.transitionTo(SlotStatus.CONSUMED)
     row.evaluationAttemptId = evaluationAttemptId

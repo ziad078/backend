@@ -54,12 +54,12 @@ export class EvaluationSubmissionService {
         lock: { mode: 'pessimistic_write' },
       })
 
-      if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
+      if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
 
       this.access.assertParentOwnership(attempt, actor)
 
       if (attempt.status !== EvaluationAttemptStatus.IN_PROGRESS) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Attempt is locked')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       const now = new Date()
@@ -85,7 +85,7 @@ export class EvaluationSubmissionService {
       })
 
       if (!evaluation) {
-        throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
+        throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
       }
 
       const result = this.scoring.calculate(evaluation, savedAnswers)

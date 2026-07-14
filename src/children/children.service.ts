@@ -23,6 +23,7 @@ import { ParentProfilesService } from 'src/users/services/parent-profiles.servic
 import { ParentOrganizationSource } from 'src/users/enums/parent-organization-source.enum'
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
+import { PaginationQueryDto, buildPaginationMeta } from 'src/common/dto/pagination-query.dto'
 
 export type CreateChildResponse = {
   status: 'CREATED' | 'TRANSFER_REQUIRED'
@@ -76,7 +77,7 @@ export class ChildrenService {
           title: 'Child limit reached',
           message: `You have reached the maximum of ${parentProfile.maxChildren} children on your account.`,
         })
-        throw ApiException.badRequest(ApiErrorCodes.CHILD_LIMIT_REACHED, 'Child limit reached')
+        throw ApiException.badRequest(ApiErrorCodes.CHILD_LIMIT_REACHED)
       }
 
       // Create private child
@@ -92,22 +93,27 @@ export class ChildrenService {
     })
   }
 
-  async findPrivateChildrenForParent(parentUserId: string) {
+  async findPrivateChildrenForParent(parentUserId: string, query?: PaginationQueryDto) {
     // Resolve ParentProfile for user
     const parentProfile = await this.parentProfilesService.findByUserId(parentUserId)
     if (!parentProfile) {
-      return { children: [], count: 0 }
+      return { data: [], meta: buildPaginationMeta(1, query?.limit ?? 20, 0) }
     }
 
-    const [children, count] = await this.privateChildrenRepository.findAndCount({
+    const page = query?.page ?? 1
+    const limit = query?.limit ?? 20
+
+    const [children, total] = await this.privateChildrenRepository.findAndCount({
       where: {
         parent: { id: parentProfile.id },
       },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     })
 
     return {
-      children: await Promise.all(
+      data: await Promise.all(
         children.map(async (child) => {
           const usage = await this.attemptUsageservice.getUsage(
             child.id,
@@ -122,28 +128,33 @@ export class ChildrenService {
           }
         }),
       ),
-      count,
+      meta: buildPaginationMeta(page, limit, total),
     }
   }
 
-  async findOrgChildrenForParent(parentUserId: string) {
+  async findOrgChildrenForParent(parentUserId: string, query?: PaginationQueryDto) {
     // Resolve ParentProfile for user
     const parentProfile = await this.parentProfilesService.findByUserId(parentUserId)
     if (!parentProfile) {
-      return { children: [], count: 0 }
+      return { data: [], meta: buildPaginationMeta(1, query?.limit ?? 20, 0) }
     }
 
+    const page = query?.page ?? 1
+    const limit = query?.limit ?? 20
+
     // Get all organization-linked children for this parent (across all orgs)
-    const [children, count] = await this.organizationChildrenRepository.findAndCount({
+    const [children, total] = await this.organizationChildrenRepository.findAndCount({
       where: {
         parent: { id: parentProfile.id },
       },
       relations: { organization: true, class: { grade: true } },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     })
 
     return {
-      children: await Promise.all(
+      data: await Promise.all(
         children.map(async (child) => {
           const usage = await this.attemptUsageservice.getUsage(
             child.id,
@@ -158,31 +169,36 @@ export class ChildrenService {
           }
         }),
       ),
-      count,
+      meta: buildPaginationMeta(page, limit, total),
     }
   }
 
   /**
    * Optional: Get organization children for a specific parent and organization.
    */
-  async findOrgChildrenForParentByOrganization(parentUserId: string, organizationId: string) {
+  async findOrgChildrenForParentByOrganization(parentUserId: string, organizationId: string, query?: PaginationQueryDto) {
     // Resolve ParentProfile for user
     const parentProfile = await this.parentProfilesService.findByUserId(parentUserId)
     if (!parentProfile) {
-      return { children: [], count: 0 }
+      return { data: [], meta: buildPaginationMeta(1, query?.limit ?? 20, 0) }
     }
 
-    const [children, count] = await this.organizationChildrenRepository.findAndCount({
+    const page = query?.page ?? 1
+    const limit = query?.limit ?? 20
+
+    const [children, total] = await this.organizationChildrenRepository.findAndCount({
       where: {
         parent: { id: parentProfile.id },
         organization: { id: organizationId },
       },
       relations: { class: { grade: true } },
       order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     })
 
     return {
-      children: await Promise.all(
+      data: await Promise.all(
         children.map(async (child) => {
           const usage = await this.attemptUsageservice.getUsage(
             child.id,
@@ -197,7 +213,7 @@ export class ChildrenService {
           }
         }),
       ),
-      count,
+      meta: buildPaginationMeta(page, limit, total),
     }
   }
 
@@ -212,7 +228,7 @@ export class ChildrenService {
       if (
         !(await this.organizationsService.isOrgMember(currentUser.userId, currentOrganizationId))
       ) {
-        throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, 'You are not allowed to add children to this class')
+        throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
       }
 
       await this.organizationsService.assertOrganizationApproved(currentOrganizationId)
@@ -255,7 +271,7 @@ export class ChildrenService {
           title: 'Child limit reached',
           message: `Parent has reached the maximum of ${parentProfile.maxChildren} children on their account.`,
         })
-        throw ApiException.forbidden(ApiErrorCodes.CHILD_LIMIT_REACHED, 'Parent has reached the child limit')
+        throw ApiException.forbidden(ApiErrorCodes.CHILD_LIMIT_REACHED)
       }
 
       // Check for existing organization child by birthDate and ParentProfile
@@ -269,7 +285,7 @@ export class ChildrenService {
 
       if (existingChild) {
         if (existingChild.organization.id === currentOrganizationId) {
-          throw ApiException.conflict(ApiErrorCodes.CHILD_DUPLICATE, 'Child already exists in your school')
+          throw ApiException.conflict(ApiErrorCodes.CHILD_DUPLICATE)
         }
 
         // Transfer flow: child exists in another org for same parent
@@ -321,18 +337,27 @@ export class ChildrenService {
     )
   }
 
-  async findAll() {
-    const [orgChildren, orgCount] = await this.organizationChildrenRepository.findAndCount()
-    const [privateChildren, privateCount] = await this.privateChildrenRepository.findAndCount()
+  async findAll(query?: PaginationQueryDto) {
+    const page = query?.page ?? 1
+    const limit = query?.limit ?? 20
+
+    const [orgChildren, orgCount] = await this.organizationChildrenRepository.findAndCount({
+      skip: (page - 1) * limit,
+      take: limit,
+    })
+    const [privateChildren, privateCount] = await this.privateChildrenRepository.findAndCount({
+      skip: (page - 1) * limit,
+      take: limit,
+    })
     return {
-      children: [...orgChildren, ...privateChildren],
-      count: orgCount + privateCount,
+      data: [...orgChildren, ...privateChildren],
+      meta: buildPaginationMeta(page, limit, orgCount + privateCount),
     }
   }
 
   async findAllByOrganization(orgId: string, currentUser: JwtRequestUser) {
     if (!(await this.organizationsService.isOrgMember(currentUser.userId, orgId))) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You are not allowed to access these data')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     const children = await this.organizationChildrenRepository.find({
@@ -351,18 +376,25 @@ export class ChildrenService {
     }
   }
 
-  async findByUser(userId: string, actor: JwtRequestUser) {
+  async findByUser(userId: string, actor: JwtRequestUser, query?: PaginationQueryDto) {
     this.childAccessPolicy.assertCanListChildrenForUser(userId, actor)
+
+    const page = query?.page ?? 1
+    const limit = query?.limit ?? 20
 
     const [orgChildren, orgCount] = await this.organizationChildrenRepository.findAndCount({
       where: { createdBy: { id: userId } },
+      skip: (page - 1) * limit,
+      take: limit,
     })
     const [privateChildren, privateCount] = await this.privateChildrenRepository.findAndCount({
       where: { createdBy: { id: userId } },
+      skip: (page - 1) * limit,
+      take: limit,
     })
     return {
-      children: [...orgChildren, ...privateChildren],
-      count: orgCount + privateCount,
+      data: [...orgChildren, ...privateChildren],
+      meta: buildPaginationMeta(page, limit, orgCount + privateCount),
     }
   }
 
@@ -380,7 +412,7 @@ export class ChildrenService {
     const privateChild = await this.privateChildrenRepository.findOneBy({ id })
     if (privateChild) return privateChild
 
-    throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
+    throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
   }
 
   async save(child: OrganizationChild | PrivateChild) {

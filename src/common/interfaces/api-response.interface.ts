@@ -4,6 +4,7 @@ export interface FieldError {
   field: string
   code: string
   message: string
+  context?: Record<string, unknown>
 }
 
 export interface PaginationMeta {

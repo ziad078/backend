@@ -40,7 +40,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto) {
     const user = await this.authService.validateUser(dto.phone, dto.password)
 
-      if (!user) throw ApiException.unauthorized(ApiErrorCodes.AUTH_INVALID_CREDENTIALS, 'Invalid credentials')
+      if (!user) throw ApiException.unauthorized(ApiErrorCodes.AUTH_INVALID_CREDENTIALS)
 
     return this.authService.login(user)
   }
@@ -50,7 +50,7 @@ export class AuthController {
   async beneficiariesSiginup(@Body() dto: BeneficiariesSignupDto) {
     const alreadyExists = await this.authService.isAlreadyExits(dto.phone, dto.email)
     if (alreadyExists) {
-      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS, 'User already exists')
+      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS)
     }
     return this.authService.beneficiariesSignup(dto)
   }
@@ -59,7 +59,7 @@ export class AuthController {
   async enrichersSignup(@Body() dto: EnrichersSignupDto) {
     const alreadyExists = await this.authService.isAlreadyExits(dto.phone, dto.email)
     if (alreadyExists) {
-      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS, 'User already exists')
+      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS)
     }
     return this.authService.enrichersSignup(dto)
   }
@@ -68,7 +68,7 @@ export class AuthController {
   async parentSignup(@Body() dto: ParentSignupDto) {
     const alreadyExists = await this.authService.isAlreadyExits(dto.phone, dto.email)
     if (alreadyExists) {
-      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS, 'User already exists')
+      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS)
     }
     return this.authService.parentSignup(dto)
   }
@@ -76,7 +76,7 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Body('token') token?: string) {
     if (!token) {
-      throw ApiException.unauthorized(ApiErrorCodes.AUTH_REFRESH_TOKEN_MISSING, 'Refresh token missing')
+      throw ApiException.unauthorized(ApiErrorCodes.AUTH_REFRESH_TOKEN_MISSING)
     }
     try {
       const payload = this.jwtService.verify<TokenPayload>(token)
@@ -92,18 +92,18 @@ export class AuthController {
 
       if (!matchedSession) {
         await this.sessionsService.deleteAllUserSessions(payload.sub)
-        throw ApiException.unauthorized(ApiErrorCodes.AUTH_SESSION_COMPROMISED, 'Session compromised')
+        throw ApiException.unauthorized(ApiErrorCodes.AUTH_SESSION_COMPROMISED)
       }
 
       const user = await this.usersService.findById(payload.sub)
 
-    if (!user) throw ApiException.unauthorized(ApiErrorCodes.AUTH_INVALID_CREDENTIALS, 'Invalid credentials')
+    if (!user) throw ApiException.unauthorized(ApiErrorCodes.AUTH_INVALID_CREDENTIALS)
 
       await this.sessionsService.deleteSession(matchedSession.id)
 
       return this.authService.login(user)
     } catch {
-      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID, 'Invalid or expired token')
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
     }
   }
 
@@ -111,7 +111,7 @@ export class AuthController {
   async logout(@Param('sessionId', new ParseUUIDPipe()) id: string, @Req() req: AuthRequest) {
     const session = await this.sessionsService.findOne(id)
     if (!session || session.userId !== req.user.userId) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_LOGOUT_FAILED, 'Cannot logout this session')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_LOGOUT_FAILED)
     }
     await this.sessionsService.deleteSession(id)
     return { message: 'Logged out', statusCode: 200 }

@@ -43,7 +43,7 @@ export class ChildAccessPolicy {
     })
 
     if (!privateChild) {
-      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
     return privateChild
@@ -81,7 +81,7 @@ export class ChildAccessPolicy {
       }
     }
 
-    throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, 'You do not have access to this child')
+    throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
   }
 
   assertWriteAccess(child: OrganizationChild | PrivateChild, actor: JwtRequestUser) {
@@ -98,12 +98,12 @@ export class ChildAccessPolicy {
       }
     }
 
-    throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, 'You are not allowed to modify this child')
+    throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
   }
 
   assertCanListChildrenForUser(targetUserId: string, actor: JwtRequestUser) {
     if (hasRole(actor.roles, UserRole.ADMIN)) return
     if (actor.userId === targetUserId) return
-    throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, 'You can only list children for your own account')
+    throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
   }
 }

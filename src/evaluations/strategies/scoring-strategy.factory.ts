@@ -36,7 +36,7 @@ export class ScoringStrategyFactory {
 
     const strategy = strategyMap.get(type)
     if (!strategy) {
-      throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, `Unknown assessment type: ${type}`)
+      throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, { assessmentType: type })
     }
     return strategy
   }

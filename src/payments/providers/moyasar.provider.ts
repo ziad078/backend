@@ -28,14 +28,14 @@ export class MoyasarProvider implements PaymentProvider {
     const secret = this.config.get<string>('MOYASAR_WEBHOOK_SECRET')
     if (!secret?.trim()) {
       this.logger.error('MOYASAR_WEBHOOK_SECRET is not configured')
-      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Webhook verification is not configured')
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID)
     }
 
     const expectedHex = createHmac('sha256', secret).update(rawBody).digest('hex')
     const provided = (signatureHeader ?? '').trim()
 
     if (!provided) {
-      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Missing webhook signature')
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID)
     }
 
     const normalized = provided.toLowerCase()
@@ -43,11 +43,11 @@ export class MoyasarProvider implements PaymentProvider {
     const providedBuf = Buffer.from(normalized, 'utf8')
 
     if (expectedBuf.length !== providedBuf.length) {
-      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Invalid webhook signature')
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID)
     }
 
     if (!timingSafeEqual(expectedBuf, providedBuf)) {
-      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Invalid webhook signature')
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID)
     }
   }
 
@@ -106,7 +106,7 @@ export class MoyasarProvider implements PaymentProvider {
 
     if (!res.ok) {
       this.logger.error(`Moyasar invoice create failed: HTTP ${res.status} ${JSON.stringify(json)}`)
-      throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE, 'Payment service unavailable')
+      throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE)
     }
 
     const providerId = String(json?.id ?? '')
@@ -117,7 +117,7 @@ export class MoyasarProvider implements PaymentProvider {
 
     if (!providerId || !url) {
       this.logger.error(`Moyasar invoice response missing id/url: ${JSON.stringify(json)}`)
-      throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE, 'Payment service unavailable')
+      throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE)
     }
 
     return { providerId, url }

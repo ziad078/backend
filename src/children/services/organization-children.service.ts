@@ -20,7 +20,7 @@ export class OrganizationChildrenService {
   async create(dto: any, actor: Actor): Promise<OrganizationChild> {
     const policyResult = this.childAccessPolicy.canCreate(actor)
     if (!policyResult.allowed) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
     }
 
     const child = this.orgChildRepo.create(dto)
@@ -46,12 +46,12 @@ export class OrganizationChildrenService {
     })
 
     if (!child) {
-      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
     const policyResult = this.childAccessPolicy.canView(actor, child)
     if (!policyResult.allowed) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
     }
 
     return child
@@ -98,7 +98,7 @@ export class OrganizationChildrenService {
   async findByOrganization(organizationId: string, actor: Actor): Promise<OrganizationChild[]> {
     const policyResult = this.childAccessPolicy.canListOrganizationChildren(actor)
     if (!policyResult.allowed) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
     }
 
     return this.orgChildRepo.find({

@@ -57,7 +57,7 @@ export class ParentProfilesService {
     })
 
     if (!user) {
-      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
     }
 
     // Ensure user has PARENT role
@@ -91,7 +91,7 @@ export class ParentProfilesService {
       relations: ['user', 'organizationLinks', 'organizationChildren', 'privateChildren'],
     })
     if (!parentProfile) {
-      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'Parent not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
     }
     return parentProfile
   }
@@ -116,7 +116,7 @@ export class ParentProfilesService {
     })
 
     if (!profile) {
-      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
     }
 
     return profile.userId
@@ -206,7 +206,7 @@ export class ParentProfilesService {
     const uniqueParents = Array.from(new Map(parentMatches.map((p) => [p.id, p])).values())
 
     if (uniqueParents.length > 1) {
-      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS, 'The provided phone and email belong to different accounts')
+      throw ApiException.conflict(ApiErrorCodes.USER_ALREADY_EXISTS)
     }
 
     let parent = uniqueParents[0]
@@ -229,7 +229,7 @@ export class ParentProfilesService {
     } else {
       // Create new parent user
       if (!parentData.name) {
-        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, 'Parent name is required when creating a new parent account')
+        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED)
       }
 
       const userManager = manager ?? this.userRepository.manager

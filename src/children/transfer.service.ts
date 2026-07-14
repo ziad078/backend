@@ -60,19 +60,19 @@ export class TransferService {
         where: { id: childId },
         relations: ['organization', 'class'],
       })
-      if (!orgChild) throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
+      if (!orgChild) throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
       fromOrganizationId = orgChild.organizationId
       if (fromOrganizationId === toOrganizationId) {
-        throw ApiException.conflict(ApiErrorCodes.CHILD_DUPLICATE, 'Child already exists in your school')
+        throw ApiException.conflict(ApiErrorCodes.CHILD_DUPLICATE)
       }
     } else {
       const privateChild = await privateChildRepo.findOne({ where: { id: childId } })
-      if (!privateChild) throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
-      throw ApiException.badRequest(ApiErrorCodes.TRANSFER_INVALID_CHILD_TYPE, 'Cannot transfer private child - only organization children can be transferred')
+      if (!privateChild) throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
+      throw ApiException.badRequest(ApiErrorCodes.TRANSFER_INVALID_CHILD_TYPE)
     }
 
     const toOrganization = await orgRepo.findOneBy({ id: toOrganizationId })
-    if (!toOrganization) throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Target organization not found')
+    if (!toOrganization) throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND)
 
     const whereClause: any = {
       fromOrganizationId,
@@ -137,18 +137,18 @@ export class TransferService {
       where: { id: transferRequestId },
       relations: ['fromOrganization', 'toOrganization', 'organizationChild', 'privateChild'],
     })
-    if (!transfer) throw ApiException.notFound(ApiErrorCodes.TRANSFER_NOT_FOUND, 'Transfer request not found')
+    if (!transfer) throw ApiException.notFound(ApiErrorCodes.TRANSFER_NOT_FOUND)
     if (transfer.status !== TransferRequestStatus.PENDING) {
-      throw ApiException.conflict(ApiErrorCodes.TRANSFER_ALREADY_RESOLVED, 'Transfer request is already resolved')
+      throw ApiException.conflict(ApiErrorCodes.TRANSFER_ALREADY_RESOLVED)
     }
 
     const cls = await classRepo.findOne({
       where: { id: classId },
       relations: { organization: true },
     })
-    if (!cls) throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND, 'Class not found')
+    if (!cls) throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND)
     if (cls.organization.id !== transfer.toOrganizationId) {
-      throw ApiException.badRequest(ApiErrorCodes.CLASS_NOT_FOUND, 'Class must belong to the target organization')
+      throw ApiException.badRequest(ApiErrorCodes.CLASS_NOT_FOUND)
     }
 
     const oldValue = { status: transfer.status }
@@ -158,7 +158,7 @@ export class TransferService {
     if (transfer.organizationChildId) {
       await orgChildRepo.update({ id: transfer.organizationChildId }, { classId })
     } else {
-      throw ApiException.badRequest(ApiErrorCodes.TRANSFER_INVALID_CHILD_TYPE, 'Cannot approve transfer for private child')
+      throw ApiException.badRequest(ApiErrorCodes.TRANSFER_INVALID_CHILD_TYPE)
     }
 
     await this.auditService.logApprove(
@@ -185,9 +185,9 @@ export class TransferService {
     const transfer = await transferRepo.findOne({
       where: { id: transferRequestId },
     })
-    if (!transfer) throw ApiException.notFound(ApiErrorCodes.TRANSFER_NOT_FOUND, 'Transfer request not found')
+    if (!transfer) throw ApiException.notFound(ApiErrorCodes.TRANSFER_NOT_FOUND)
     if (transfer.status !== TransferRequestStatus.PENDING) {
-      throw ApiException.conflict(ApiErrorCodes.TRANSFER_ALREADY_RESOLVED, 'Transfer request is already resolved')
+      throw ApiException.conflict(ApiErrorCodes.TRANSFER_ALREADY_RESOLVED)
     }
 
     const oldValue = { status: transfer.status }

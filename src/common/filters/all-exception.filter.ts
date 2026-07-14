@@ -14,6 +14,7 @@ import { ApiErrorCodes } from '../enums/api-error.enum'
 import { ApiErrorResponse } from '../interfaces/api-response.interface'
 import { DatabaseErrorMapper } from '../mappers/database-error.mapper'
 import { ValidationErrorMapper } from '../mappers/validation-error.mapper'
+import { resolveTranslation } from '../translations/error-translations'
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -33,7 +34,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
     const status = apiException.getStatus()
 
-    this.logException(request, status, responseObj.message, exception)
+    this.logException(request, status, responseObj.code, exception)
 
     const errorResponse: ApiErrorResponse = {
       success: false,
@@ -69,31 +70,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     return ApiException.internal(
-      this.isDev() && exception instanceof Error ? exception.message : 'An unexpected error occurred',
-      this.isDev() && exception instanceof Error ? { stack: exception.stack } : undefined,
+      this.isDev() && exception instanceof Error ? { message: exception.message, stack: exception.stack } : undefined,
     )
   }
 
   private fromHttpException(exception: HttpException): ApiException {
     const status = exception.getStatus()
-    const response = exception.getResponse()
+    const code = this.mapStatusToCode(status)
 
-    let message: string
-    let details: Record<string, unknown> | undefined
-
-    if (typeof response === 'string') {
-      message = response
-    } else {
-      const responseObj = response as Record<string, unknown>
-      if (Array.isArray(responseObj.message)) {
-        message = 'Validation failed'
-        details = { errors: responseObj.message }
-      } else {
-        message = (responseObj.message as string) ?? exception.message
-      }
-    }
-
-    return new ApiException(status, this.mapStatusToCode(status), message, details)
+    return new ApiException(status, code, resolveTranslation(code))
   }
 
   private mapStatusToCode(status: HttpStatus): ApiErrorCodes {
@@ -120,12 +105,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
   private logException(
     request: Request,
     status: HttpStatus,
-    message: string,
+    code: ApiErrorCodes,
     original: unknown,
   ): void {
     const requestId = (request as any).requestId ?? ''
     const userId = (request as any).user?.userId ?? ''
-    const line = `[${requestId}] ${request.method} ${request.originalUrl} -> ${status}: ${message}${userId ? ` (user=${userId})` : ''}`
+    const line = `[${requestId}] ${request.method} ${request.originalUrl} -> ${status}: ${code}${userId ? ` (user=${userId})` : ''}`
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(line, original instanceof Error ? original.stack : undefined)

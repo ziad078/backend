@@ -117,7 +117,7 @@ export class OwnerEvaluationResultsService {
       : null
 
     if (filters.evaluationId && !evaluation) {
-      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
     const classIds = classes.map((cls) => cls.id)
@@ -187,7 +187,7 @@ export class OwnerEvaluationResultsService {
     })
 
     if (!cls) {
-      throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND, 'Class not found')
+      throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND)
     }
 
     const evaluation = await this.evaluationRepo.findOne({
@@ -204,7 +204,7 @@ export class OwnerEvaluationResultsService {
     })
 
     if (!evaluation) {
-      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
     const children = cls.children ?? []
@@ -303,7 +303,7 @@ export class OwnerEvaluationResultsService {
     })
 
     if (!cls) {
-      throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND, 'Class not found')
+      throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND)
     }
 
     const evaluation = await this.evaluationRepo.findOne({
@@ -320,7 +320,7 @@ export class OwnerEvaluationResultsService {
     })
 
     if (!evaluation) {
-      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
     const children = cls.children ?? []
@@ -379,11 +379,11 @@ export class OwnerEvaluationResultsService {
     })
 
     if (!child) {
-      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
     if (!child.parent?.id) {
-      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child parent not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
     await this.notificationsService.enqueue({
@@ -414,7 +414,7 @@ export class OwnerEvaluationResultsService {
     // }
 
     if (!actor.roles.includes(UserRole.ORGANIZATIONOWNER)) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'Insufficient role')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     const organization = await this.organizationRepo.findOne({
@@ -424,7 +424,7 @@ export class OwnerEvaluationResultsService {
     })
 
     if (!organization) {
-      throw ApiException.forbidden(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found for owner')
+      throw ApiException.forbidden(ApiErrorCodes.ORGANIZATION_NOT_FOUND)
     }
 
     return organization.id

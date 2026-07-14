@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common'
+import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Roles } from 'src/users/decorators/role.decorator'
 import { UserRole } from 'src/common/enums/role.enum'
 import { type AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { ChildrenService } from './children.service'
 import { CreateChildByParentDto } from './dto/create-child-by-parent.dto'
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto'
 
 type JwtRequestUser = {
   userId: string
@@ -28,9 +29,9 @@ export class ParentChildrenController {
   @Roles(UserRole.PARENT)
   @Get('children')
   @ApiOperation({ summary: 'List private children for the current parent' })
-  list(@Req() req: AuthRequest) {
+  list(@Query() query: PaginationQueryDto, @Req() req: AuthRequest) {
     const user = req.user as unknown as JwtRequestUser
-    return this.childrenService.findPrivateChildrenForParent(user.userId)
+    return this.childrenService.findPrivateChildrenForParent(user.userId, query)
   }
 
   @Roles(UserRole.PARENT)
@@ -38,8 +39,8 @@ export class ParentChildrenController {
   @ApiOperation({
     summary: 'List organization children for the current parent',
   })
-  listOrgChildren(@Req() req: AuthRequest) {
+  listOrgChildren(@Query() query: PaginationQueryDto, @Req() req: AuthRequest) {
     const user = req.user as unknown as JwtRequestUser
-    return this.childrenService.findOrgChildrenForParent(user.userId)
+    return this.childrenService.findOrgChildrenForParent(user.userId, query)
   }
 }

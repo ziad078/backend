@@ -31,7 +31,7 @@ export class EvaluationAnswerBuilderService {
     const duplicatedQuestionIds = this.findDuplicates(questionIds)
 
     if (duplicatedQuestionIds.length > 0) {
-      throw ApiException.badRequest(ApiErrorCodes.EVALUATION_DUPLICATE_ANSWERS, `Duplicate answers for questions: ${duplicatedQuestionIds.join(', ')}`)
+      throw ApiException.badRequest(ApiErrorCodes.EVALUATION_DUPLICATE_ANSWERS, { questionIds: duplicatedQuestionIds })
     }
 
     const questions = await manager.getRepository(EvaluationQuestion).find({
@@ -50,17 +50,17 @@ export class EvaluationAnswerBuilderService {
     )
 
     if (questionMap.size !== questionIds.length) {
-      throw ApiException.badRequest(ApiErrorCodes.EVALUATION_INVALID_QUESTION, 'One or more questions do not belong to this evaluation')
+      throw ApiException.badRequest(ApiErrorCodes.EVALUATION_INVALID_QUESTION)
     }
 
     return inputs.map((input) => {
       const question = questionMap.get(input.questionId)
-      if (!question) throw ApiException.badRequest(ApiErrorCodes.EVALUATION_INVALID_QUESTION, 'Invalid question')
+      if (!question) throw ApiException.badRequest(ApiErrorCodes.EVALUATION_INVALID_QUESTION)
 
       const selected = question.answers.find((answer) => answer.id === input.selectedAnswerId)
 
       if (!selected) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_INVALID_ANSWER, 'Selected answer does not belong to question')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_INVALID_ANSWER)
       }
 
       return {

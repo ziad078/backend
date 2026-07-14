@@ -17,6 +17,7 @@ import { UserRole } from 'src/common/enums/role.enum'
 import { Roles } from 'src/users/decorators/role.decorator'
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger'
 import type { AuthRequest } from 'src/common/interfaces/auth-request.interface'
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto'
 
 @ApiTags('children')
 @ApiBearerAuth()
@@ -42,8 +43,8 @@ export class ChildrenController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all children (admin)' })
   @Get('all')
-  findAll() {
-    return this.childrenService.findAll()
+  findAll(@Query() query: PaginationQueryDto) {
+    return this.childrenService.findAll(query)
   }
 
   @Roles(UserRole.ADMIN, UserRole.PARENT)
@@ -51,8 +52,12 @@ export class ChildrenController {
   @ApiOperation({
     summary: 'Get all children for specific user (self or admin)',
   })
-  findByUser(@Query('userId', new ParseUUIDPipe()) userId: string, @Req() req: AuthRequest) {
-    return this.childrenService.findByUser(userId, req.user)
+  findByUser(
+    @Query('userId', new ParseUUIDPipe()) userId: string,
+    @Query() query: PaginationQueryDto,
+    @Req() req: AuthRequest,
+  ) {
+    return this.childrenService.findByUser(userId, req.user, query)
   }
 
   @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN, UserRole.TEACHER)

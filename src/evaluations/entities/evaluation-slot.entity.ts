@@ -115,7 +115,6 @@ export class EvaluationSlot {
     if (!allowed.includes(next)) {
       throw ApiException.badRequest(
         ApiErrorCodes.EVALUATION_INVALID_TRANSITION,
-        `Invalid transition from ${this.status} to ${next}`,
         { from: this.status, to: next },
       )
     }

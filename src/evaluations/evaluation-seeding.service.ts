@@ -131,7 +131,6 @@ export class EvaluationSeedingService implements OnModuleInit {
       const dimension = dimensions.get(questionSeed.dimensionCode)
       if (!dimension) {
         throw ApiException.internal(
-          `Missing dimension "${questionSeed.dimensionCode}" for ${seed.title}`,
           { dimensionCode: questionSeed.dimensionCode, evaluationTitle: seed.title },
         )
       }

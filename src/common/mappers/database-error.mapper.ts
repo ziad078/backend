@@ -3,16 +3,17 @@ import { QueryFailedError } from 'typeorm'
 import { ApiException } from '../exceptions/api.exception'
 import { ApiErrorCodes } from '../enums/api-error.enum'
 import { PgErrorCode } from '../enums/database-error.enum'
+import { resolveTranslation } from '../translations/error-translations'
 
-export const DATABASE_CONSTRAINTS: Record<string, { code: ApiErrorCodes; message: string }> = {
-  users_email_unique: { code: ApiErrorCodes.USER_EMAIL_IN_USE, message: 'Email already exists' },
-  users_phone_unique: { code: ApiErrorCodes.USER_PHONE_IN_USE, message: 'Phone number already exists' },
-  organizations_slug_unique: { code: ApiErrorCodes.ORGANIZATION_ALREADY_EXISTS, message: 'Organization already exists' },
-  grades_name_organization_unique: { code: ApiErrorCodes.GRADE_ALREADY_EXISTS, message: 'Grade already exists' },
-  classes_name_grade_unique: { code: ApiErrorCodes.CLASS_ALREADY_EXISTS, message: 'Class already exists' },
-  subjects_name_organization_unique: { code: ApiErrorCodes.CLASS_ALREADY_EXISTS, message: 'Subject already exists' },
-  evaluation_slot_organizationChildId_parentId_kind_key: { code: ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND, message: 'Evaluation slot already exists' },
-  evaluation_slot_privateChildId_parentId_kind_key: { code: ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND, message: 'Evaluation slot already exists' },
+export const DATABASE_CONSTRAINTS: Record<string, { code: ApiErrorCodes; translationKey: string }> = {
+  users_email_unique: { code: ApiErrorCodes.USER_EMAIL_IN_USE, translationKey: 'errors.user.emailInUse' },
+  users_phone_unique: { code: ApiErrorCodes.USER_PHONE_IN_USE, translationKey: 'errors.user.phoneInUse' },
+  organizations_slug_unique: { code: ApiErrorCodes.ORGANIZATION_ALREADY_EXISTS, translationKey: 'errors.organization.alreadyExists' },
+  grades_name_organization_unique: { code: ApiErrorCodes.GRADE_ALREADY_EXISTS, translationKey: 'errors.grade.alreadyExists' },
+  classes_name_grade_unique: { code: ApiErrorCodes.CLASS_ALREADY_EXISTS, translationKey: 'errors.class.alreadyExists' },
+  subjects_name_organization_unique: { code: ApiErrorCodes.CLASS_ALREADY_EXISTS, translationKey: 'errors.class.alreadyExists' },
+  evaluation_slot_organizationChildId_parentId_kind_key: { code: ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND, translationKey: 'errors.evaluation.slotNotFound' },
+  evaluation_slot_privateChildId_parentId_kind_key: { code: ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND, translationKey: 'errors.evaluation.slotNotFound' },
 }
 
 export class DatabaseErrorMapper {
@@ -35,7 +36,7 @@ export class DatabaseErrorMapper {
         return new ApiException(
           HttpStatus.CONFLICT,
           ApiErrorCodes.DB_FOREIGN_KEY_VIOLATION,
-          'This operation references a record that does not exist or is in use',
+          resolveTranslation(ApiErrorCodes.DB_FOREIGN_KEY_VIOLATION),
           {
             constraint: driverError.constraint,
             table: driverError.table,
@@ -46,7 +47,7 @@ export class DatabaseErrorMapper {
         return new ApiException(
           HttpStatus.BAD_REQUEST,
           ApiErrorCodes.DB_NOT_NULL_VIOLATION,
-          `Field "${driverError.column}" is required`,
+          resolveTranslation(ApiErrorCodes.DB_NOT_NULL_VIOLATION),
           { column: driverError.column, table: driverError.table },
         )
 
@@ -54,7 +55,7 @@ export class DatabaseErrorMapper {
         return new ApiException(
           HttpStatus.BAD_REQUEST,
           ApiErrorCodes.DB_CHECK_VIOLATION,
-          'One or more fields violate database constraints',
+          resolveTranslation(ApiErrorCodes.DB_CHECK_VIOLATION),
           { constraint: driverError.constraint, table: driverError.table },
         )
 
@@ -62,7 +63,7 @@ export class DatabaseErrorMapper {
         return new ApiException(
           HttpStatus.INTERNAL_SERVER_ERROR,
           ApiErrorCodes.DB_ERROR,
-          'Database error occurred',
+          resolveTranslation(ApiErrorCodes.DB_ERROR),
           this.isDev() ? { code: driverError.code, detail: driverError.detail } : undefined,
         )
     }
@@ -83,7 +84,7 @@ export class DatabaseErrorMapper {
     return new ApiException(
       HttpStatus.CONFLICT,
       config?.code ?? ApiErrorCodes.DB_UNIQUE_VIOLATION,
-      config?.message ?? 'A record with this value already exists',
+      config?.translationKey ?? resolveTranslation(ApiErrorCodes.DB_UNIQUE_VIOLATION),
       {
         constraint: driverError.constraint,
         table: driverError.table,

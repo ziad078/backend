@@ -50,7 +50,7 @@ export class PaymentsController {
   webhook(@Req() req: RawBodyRequest<Request>, @Headers('x-moyasar-signature') signature?: string) {
     const raw = req.rawBody
     if (!raw?.length) {
-      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_WEBHOOK_MISSING, 'Raw body is required — enable Nest rawBody (see bootstrap)')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_WEBHOOK_MISSING)
     }
     return this.payments.handleWebhook(raw, signature)
   }

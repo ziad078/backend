@@ -12,6 +12,7 @@ import { UsersModule } from 'src/users/users.module'
 import { EvaluationNotificationsListener } from './listeners/evaluation-notifications.listener'
 import { ConfigService } from '@nestjs/config'
 import { JwtModule } from '@nestjs/jwt'
+import { OrgNotificationListener } from './listeners/organization-notification.listener'
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { JwtModule } from '@nestjs/jwt'
     EmailProvider,
     InAppProvider,
     EvaluationNotificationsListener,
+    OrgNotificationListener,
   ],
   exports: [NotificationsService],
 })

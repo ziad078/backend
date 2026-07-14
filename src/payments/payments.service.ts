@@ -85,7 +85,7 @@ export class PaymentsService {
       PaymentProviderEnum.MOYASAR
     const code = requested ?? fallback
     if (code !== this.provider.providerCode) {
-      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_INVALID_PROVIDER, `Payment provider "${code}" is not active yet. Active provider: ${this.provider.providerCode}`)
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_INVALID_PROVIDER, { providerCode: code, activeProvider: this.provider.providerCode })
     }
     return code
   }
@@ -117,7 +117,7 @@ export class PaymentsService {
     const input = this.normalizeCreatePaymentDto(dto)
     const currency = (input.currency ?? 'SAR').toUpperCase()
     if (currency !== 'SAR') {
-      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_CURRENCY_NOT_SUPPORTED, 'Only SAR currency is supported')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_CURRENCY_NOT_SUPPORTED)
     }
 
     const providerCode = this.resolveProvider(input.provider)
@@ -130,7 +130,7 @@ export class PaymentsService {
       .andWhere('p."userId" = :userId', { userId })
       .getCount()
     if (childExists < 1) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found for this parent')
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
     const metadata: PaymentMetadata = { privateChildId: input.privateChildId }
@@ -233,19 +233,19 @@ export class PaymentsService {
       this.provider.verifyWebhookSignature(rawBody, signatureHeader)
     } catch (err) {
       if (err instanceof ApiException) throw err
-      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID, 'Invalid webhook')
+      throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID)
     }
 
     let parsed: unknown
     try {
       parsed = JSON.parse(rawBody.toString('utf8'))
     } catch {
-      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_INVALID_JSON, 'Invalid JSON webhook body')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_INVALID_JSON)
     }
 
     const providerPaymentId = this.extractProviderPaymentIdFromBody(parsed)
     if (!providerPaymentId) {
-      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_WEBHOOK_MISSING, 'Webhook payload missing payment identifier')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_WEBHOOK_MISSING)
     }
 
     const payloadHash = createHash('sha256').update(rawBody).digest('hex')
@@ -436,19 +436,19 @@ export class PaymentsService {
   }> {
     const payment = await this.payments.findOne({ where: { id: paymentId } })
     if (!payment) {
-      throw ApiException.notFound(ApiErrorCodes.PAYMENT_NOT_FOUND, 'Payment not found')
+      throw ApiException.notFound(ApiErrorCodes.PAYMENT_NOT_FOUND)
     }
     if (payment.userId !== userId) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'Payment does not belong to this user')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
     if (
       payment.status !== PaymentStatusEnum.FAILED &&
       payment.status !== PaymentStatusEnum.EXPIRED
     ) {
-      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_FAILED, 'Only failed or expired payments can be retried')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_FAILED)
     }
     if (payment.retryCount >= payment.maxRetries) {
-      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_MAX_RETRIES, 'Maximum retries exceeded')
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_MAX_RETRIES)
     }
 
     return this.executePaymentRetry(payment)

@@ -35,7 +35,7 @@ export class CapacityRequestService {
     })
 
     if (!parentProfile) {
-      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
     }
 
     const capacityRequest = this.capacityRequestRepository.create({
@@ -74,7 +74,7 @@ export class CapacityRequestService {
     })
 
     if (!parentProfile) {
-      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
     }
 
     return this.capacityRequestRepository.find({
@@ -91,7 +91,7 @@ export class CapacityRequestService {
     })
 
     if (!capacityRequest) {
-      throw ApiException.notFound(ApiErrorCodes.CAPACITY_NOT_FOUND, 'Capacity request not found')
+      throw ApiException.notFound(ApiErrorCodes.CAPACITY_NOT_FOUND)
     }
 
     if (!hasRole(user.roles, UserRole.ADMIN)) {
@@ -100,7 +100,7 @@ export class CapacityRequestService {
       })
 
       if (!parentProfile || parentProfile.id !== capacityRequest.parentId) {
-        throw ApiException.forbidden(ApiErrorCodes.CAPACITY_ACCESS_DENIED, 'You do not have access to this capacity request')
+        throw ApiException.forbidden(ApiErrorCodes.CAPACITY_ACCESS_DENIED)
       }
     }
 
@@ -116,7 +116,7 @@ export class CapacityRequestService {
     const capacityRequest = await this.findOne(id, user)
 
     if (!hasRole(user.roles, UserRole.ADMIN)) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'Only admins can update capacity requests')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     const oldValue = { ...capacityRequest }

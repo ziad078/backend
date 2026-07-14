@@ -41,15 +41,15 @@ export class EvaluationApprovalService {
       })
 
       if (!attempt) {
-        throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
+        throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
       }
 
       if (attempt.status === EvaluationAttemptStatus.APPROVED) {
-        throw ApiException.conflict(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Attempt already approved')
+        throw ApiException.conflict(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       if (attempt.status !== EvaluationAttemptStatus.SUBMITTED) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Only submitted attempts can be approved')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       const existingApproval = await approvalRepo.findOne({
@@ -58,7 +58,7 @@ export class EvaluationApprovalService {
       })
 
       if (existingApproval) {
-        throw ApiException.conflict(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Attempt already approved')
+        throw ApiException.conflict(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       const approval = await approvalRepo.save(

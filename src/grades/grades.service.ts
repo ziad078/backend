@@ -22,7 +22,7 @@ export class GradesService {
 
     const ownedOrg = await this.organizationsService.findByOwner(currentUser.userId)
     if (ownedOrg.id !== org.id) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only create grades for your own organization')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     await this.organizationsService.assertOrganizationApproved(org.id)
@@ -50,7 +50,7 @@ export class GradesService {
       where: { id },
       relations: { classes: { children: true } },
     })
-    if (!grade) throw ApiException.notFound(ApiErrorCodes.GRADE_NOT_FOUND, `Grade with ID ${id} not found`)
+    if (!grade) throw ApiException.notFound(ApiErrorCodes.GRADE_NOT_FOUND, { id })
     return {
       grade: {
         id: grade.id,
@@ -64,7 +64,7 @@ export class GradesService {
   }
   async findOneOrFail(id: string) {
     const grade = await this.gradeRepo.findOneBy({ id })
-    if (!grade) throw ApiException.notFound(ApiErrorCodes.GRADE_NOT_FOUND, `Grade with ID ${id} not found`)
+    if (!grade) throw ApiException.notFound(ApiErrorCodes.GRADE_NOT_FOUND, { id })
     return grade
   }
 
@@ -72,7 +72,7 @@ export class GradesService {
     const organization = await this.organizationsService.findOneOrFail(orgId)
 
     if (!(await this.organizationsService.isOrgMember(currentUser.userId, orgId))) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, "You are not allowed to access these data")
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     const grades = await this.gradeRepo.find({
@@ -117,14 +117,14 @@ export class GradesService {
 
     const result = await this.gradeRepo.delete(id)
     if (result.affected === 0) {
-      throw ApiException.notFound(ApiErrorCodes.GRADE_NOT_FOUND, 'Grade not found')
+      throw ApiException.notFound(ApiErrorCodes.GRADE_NOT_FOUND)
     }
     return { message: 'Deleted successfully' }
   }
 
   private async assertCanManageGrade(grade: Grade, currentUser: JwtRequestUser) {
     if (!(await this.organizationsService.isOrgMember(currentUser.userId, grade.organizationId))) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You do not have access to this grade')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
     await this.organizationsService.assertOrganizationApproved(grade.organizationId)
   }

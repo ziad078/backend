@@ -39,12 +39,12 @@ export class EvaluationAttemptLifecycleService {
     })
 
     if (!evaluation) {
-      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
     const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
     if (!parentProfile) {
-      throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found for user')
+      throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND)
     }
 
     let child: OrganizationChild | PrivateChild
@@ -67,7 +67,7 @@ export class EvaluationAttemptLifecycleService {
       })
 
       if (!orgChild || orgChild.parent.id !== parentProfile.id) {
-        throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found for this parent')
+        throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
       }
 
       child = orgChild
@@ -79,7 +79,7 @@ export class EvaluationAttemptLifecycleService {
       evaluation.institutionId != null &&
       evaluation.institutionId !== (child as OrganizationChild).class?.organization?.id
     ) {
-      throw ApiException.forbidden(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation does not belong to child institution')
+      throw ApiException.forbidden(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
     const age = this.calculateAge(child.birthDate)
@@ -87,7 +87,7 @@ export class EvaluationAttemptLifecycleService {
       (evaluation.ageFrom != null && age < evaluation.ageFrom) ||
       (evaluation.ageTo != null && age > evaluation.ageTo)
     ) {
-      throw ApiException.forbidden(ApiErrorCodes.EVALUATION_NOT_SUITABLE_AGE, 'Evaluation is not suitable for child age')
+      throw ApiException.forbidden(ApiErrorCodes.EVALUATION_NOT_SUITABLE_AGE)
     }
 
     const expiresAt = this.resolveExpiresAt(dto)
@@ -124,7 +124,7 @@ export class EvaluationAttemptLifecycleService {
       )
 
       if (inProgress) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Finish or submit the current attempt before starting another')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       const count = attempts.length
@@ -138,7 +138,7 @@ export class EvaluationAttemptLifecycleService {
           attempts: count,
           reason: 'already_approved',
         }
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS, 'Retake is not allowed after approval')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS)
       }
 
       let entitlementId: string | null = null
@@ -151,7 +151,7 @@ export class EvaluationAttemptLifecycleService {
         )
 
         if (!entitlement) {
-          throw ApiException.badRequest(ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND, 'No evaluation slot is available. Open main slot, retake, request extra, complete payment, or wait for admin approval.')
+          throw ApiException.badRequest(ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND)
         }
 
         entitlementId = entitlement.id
@@ -163,7 +163,7 @@ export class EvaluationAttemptLifecycleService {
           attempts: count,
           reason: 'max_attempts',
         }
-        throw ApiException.conflict(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS, 'Maximum attempts reached')
+        throw ApiException.conflict(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS)
       }
 
       const createData: any = {
@@ -201,18 +201,18 @@ export class EvaluationAttemptLifecycleService {
 
   private resolveExpiresAt(dto: StartEvaluationDto): Date | null {
     if (dto.expiresAt && dto.expiresInSeconds) {
-      throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, 'Provide either expiresAt or expiresInSeconds')
+      throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED)
     }
 
     if (dto.expiresAt) {
       const d = new Date(dto.expiresAt)
 
       if (Number.isNaN(d.getTime())) {
-        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, 'Invalid expiresAt')
+        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED)
       }
 
       if (d.getTime() <= Date.now()) {
-        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, 'expiresAt must be in the future')
+        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED)
       }
 
       return d

@@ -25,6 +25,7 @@ import { EvaluationSubmissionService } from './services/evaluation-submission.se
 import { ParentProfilesService } from 'src/users/services/parent-profiles.service'
 import { OrganizationChild } from 'src/children/entities/organization-child.entity'
 import { PrivateChild } from 'src/children/entities/private-child.entity'
+import { PaginationQueryDto, buildPaginationMeta } from 'src/common/dto/pagination-query.dto'
 
 @Injectable()
 export class EvaluationsService {
@@ -67,7 +68,7 @@ export class EvaluationsService {
 
       const duplicatedCodes = this.findDuplicates(dto.dimensions.map((dimension) => dimension.code))
       if (duplicatedCodes.length > 0) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_DUPLICATE_DIMENSIONS, `Duplicate dimension codes: ${duplicatedCodes.join(', ')}`)
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_DUPLICATE_DIMENSIONS, { codes: duplicatedCodes })
       }
 
       const evaluation = await evaluationRepo.save(
@@ -100,7 +101,7 @@ export class EvaluationsService {
         const dimension = dimensionByCode.get(questionDto.dimensionCode)
 
         if (!dimension) {
-          throw ApiException.badRequest(ApiErrorCodes.EVALUATION_DIMENSION_MISSING, `Dimension code "${questionDto.dimensionCode}" not found`)
+          throw ApiException.badRequest(ApiErrorCodes.EVALUATION_DIMENSION_MISSING, { dimensionCode: questionDto.dimensionCode })
         }
 
         await questionRepo.save(
@@ -174,7 +175,7 @@ export class EvaluationsService {
     })
 
     if (!evaluation) {
-      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
     return evaluation
@@ -203,7 +204,7 @@ export class EvaluationsService {
     })
 
     if (!evaluation) {
-      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND, 'Evaluation not found')
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
     return {
@@ -242,7 +243,7 @@ export class EvaluationsService {
     this.access.assertHasRole(actor, [UserRole.PARENT])
 
     const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
-    if (!parentProfile) throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
+    if (!parentProfile) throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND)
 
     // Try to find as private child first
     const privateChild = await this.privateChildrenRepository.findOne({
@@ -273,7 +274,7 @@ export class EvaluationsService {
     })
 
     if (!orgChild) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found for this parent')
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
     const age = this.calculateAge(orgChild.birthDate)
@@ -346,7 +347,7 @@ export class EvaluationsService {
       },
     })
 
-    if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
+    if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
 
     this.access.assertCanReadAttempt(attempt, scopedActor)
 
@@ -375,7 +376,7 @@ export class EvaluationsService {
           parent: true,
         },
       })
-      if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
+      if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
       this.access.assertCanReadAttempt(attempt, scopedActor)
     }
 
@@ -389,6 +390,7 @@ export class EvaluationsService {
       evaluationId?: string
       childId?: string
     },
+    query?: PaginationQueryDto,
   ) {
     this.access.assertHasRole(actor, [UserRole.ADMIN])
 
@@ -400,7 +402,10 @@ export class EvaluationsService {
       where.organizationChildId = filters.childId
     }
 
-    const [attempts, count] = await this.attemptRepo.findAndCount({
+    const page = query?.page ?? 1
+    const limit = query?.limit ?? 20
+
+    const [attempts, total] = await this.attemptRepo.findAndCount({
       where,
       relations: {
         organizationChild: true,
@@ -412,26 +417,31 @@ export class EvaluationsService {
       order: {
         startedAt: 'DESC',
       },
+      skip: (page - 1) * limit,
+      take: limit,
     })
 
-    return { attempts, count }
+    return { data: attempts, meta: buildPaginationMeta(page, limit, total) }
   }
 
-  async getAttemptsForChild(childId: string, actor: EvaluationActor) {
+  async getAttemptsForChild(childId: string, actor: EvaluationActor, query?: PaginationQueryDto) {
     const isAdmin = actor.roles.includes(UserRole.ADMIN)
     const isParent = actor.roles.includes(UserRole.PARENT)
 
     if (!isAdmin && !isParent) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'Insufficient role')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     const parentProfile = isParent
       ? await this.parentProfilesService.findByUserId(actor.userId)
       : null
 
-    if (isParent && !parentProfile) throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND, 'Parent profile not found')
+    if (isParent && !parentProfile) throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND)
 
     const parentProfileId = isParent && parentProfile ? parentProfile.id : undefined
+
+    const page = query?.page ?? 1
+    const limit = query?.limit ?? 20
 
     // Try private child first
     const privateChild = await this.privateChildrenRepository.findOne({
@@ -444,13 +454,15 @@ export class EvaluationsService {
         attemptWhere.parentId = parentProfileId
       }
 
-      const attempts = await this.attemptRepo.find({
+      const [attempts, total] = await this.attemptRepo.findAndCount({
         where: attemptWhere,
         relations: { evaluation: true, approval: true },
         order: { startedAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
       })
 
-      return { attempts, count: attempts.length }
+      return { data: attempts, meta: buildPaginationMeta(page, limit, total) }
     }
 
     // Try organization child
@@ -459,7 +471,7 @@ export class EvaluationsService {
     })
 
     if (!orgChild) {
-      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
     const attemptWhere: any = { organizationChildId: childId }
@@ -467,13 +479,15 @@ export class EvaluationsService {
       attemptWhere.parentId = parentProfileId
     }
 
-    const attempts = await this.attemptRepo.find({
+    const [attempts, total] = await this.attemptRepo.findAndCount({
       where: attemptWhere,
       relations: { evaluation: true, approval: true },
       order: { startedAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
     })
 
-    return { attempts, count: attempts.length }
+    return { data: attempts, meta: buildPaginationMeta(page, limit, total) }
   }
 
   private calculateAge(birthDate: Date | string) {

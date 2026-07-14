@@ -33,7 +33,7 @@ export class ActivitiesService {
   async findOne(id: string): Promise<Activity> {
     const activity = await this.activitiesRepo.findOne({ where: { id } })
     if (!activity) {
-      throw ApiException.notFound(ApiErrorCodes.ACTIVITY_NOT_FOUND, 'Activity not found')
+      throw ApiException.notFound(ApiErrorCodes.ACTIVITY_NOT_FOUND)
     }
     return activity
   }
@@ -52,7 +52,7 @@ export class ActivitiesService {
       order: { deals: { createdAt: 'DESC' } },
     })
     if (!activity) {
-      throw ApiException.notFound(ApiErrorCodes.ACTIVITY_NOT_FOUND, 'Activity not found')
+      throw ApiException.notFound(ApiErrorCodes.ACTIVITY_NOT_FOUND)
     }
     return activity
   }
@@ -72,7 +72,7 @@ export class ActivitiesService {
       where: { activity: { id: activity.id } },
     })
     if (hasDeals) {
-      throw ApiException.badRequest(ApiErrorCodes.ACTIVITY_HAS_DEALS, 'Cannot delete activity because it has related deals')
+      throw ApiException.badRequest(ApiErrorCodes.ACTIVITY_HAS_DEALS)
     }
 
     await this.activitiesRepo.remove(activity)

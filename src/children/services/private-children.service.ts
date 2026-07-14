@@ -21,7 +21,7 @@ export class PrivateChildrenService {
   async create(dto: any, actor: Actor): Promise<PrivateChild> {
     const policyResult = this.childAccessPolicy.canCreate(actor)
     if (!policyResult.allowed) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
     }
 
     const child = this.privateChildRepo.create(dto)
@@ -47,12 +47,12 @@ export class PrivateChildrenService {
     })
 
     if (!child) {
-      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND, 'Child not found')
+      throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
     const policyResult = this.childAccessPolicy.canView(actor, child)
     if (!policyResult.allowed) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
     }
 
     return child
@@ -99,7 +99,7 @@ export class PrivateChildrenService {
   async findByParent(parentUserId: string, actor: Actor): Promise<PrivateChild[]> {
     const policyResult = this.childAccessPolicy.canListPrivateChildren(actor, parentUserId)
     if (!policyResult.allowed) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED, policyResult.reason)
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
     }
 
     return this.privateChildRepo.find({

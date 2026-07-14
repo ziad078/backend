@@ -19,6 +19,8 @@ import { ParentProfile } from 'src/users/entities/parent-profile.entity'
 import { Organization } from 'src/organizations/entities/organization.entity'
 import { NotificationsService } from 'src/notifications/notifications.service'
 import { NotificationDelivery } from 'src/notifications/enums/notification-delivery.enum'
+import EventEmitter2 from 'eventemitter2'
+import { OrganizationEvents } from 'src/organizations/enums/organization-events.enum'
 
 export type TokenPayload = {
   sub: string
@@ -36,6 +38,7 @@ export class AuthProvider {
     private readonly dataSource: DataSource,
     private readonly strategyFactory: SignupStrategyFactory,
     private readonly notificationsService: NotificationsService,
+    private readonly events: EventEmitter2,
   ) {}
 
   generateVerificationToken(userId: string) {
@@ -56,14 +59,14 @@ export class AuthProvider {
         type: string
       }>(token)
       if (payload.type !== 'email_verification') {
-        throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID, 'Invalid token type')
+        throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
       }
 
       const userId = payload.userId ?? payload.sub
       const user = await this.usersService.findById(userId)
 
       if (!user) {
-        throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
+        throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
       }
 
       user.isEmailVerified = true
@@ -71,7 +74,7 @@ export class AuthProvider {
 
       return { message: 'Email verified successfully', ok: true }
     } catch {
-      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID, 'Invalid or expired token')
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
     }
   }
 
@@ -149,19 +152,13 @@ export class AuthProvider {
           const organization = await manager.findOne(Organization, {
             where: { ownerId: user.id },
           })
-          await this.notificationsService.enqueue({
-            userId: user.id,
-            title: 'Welcome 🎉',
-            message: `Welcome ${user.name}, we're happy to have you معنا!`,
-            delivery: NotificationDelivery.BOTH, // email + inapp
-            email: user.email,
-          })
-          await this.notificationsService.enqueue({
-            userId: user.id,
-            title: 'verification email',
-            message: `Welcome ${user.name}, we're happy to have you معنا!`,
-            delivery: NotificationDelivery.VERIFY_EMAIL, // email + inapp
-            email: user.email,
+          this.events.emit(OrganizationEvents.REGISTERED, {
+            orgId: organization?.id,
+            orgName: organization?.organizationName,
+            ownerId: organization?.ownerId,
+            ownerName: organization?.owner.name,
+            ownerEmail: organization?.owner.email,
+            ownerPhone: organization?.owner.phone,
           })
           return {
             user,

@@ -34,10 +34,7 @@ export function ensureSingleChildType(
   privateChildId?: string | null,
 ): void {
   if (organizationChildId && privateChildId) {
-    throw ApiException.badRequest(
-      ApiErrorCodes.CHILD_INVALID_TYPE,
-      'A child can only be one type: either organization or private, not both',
-    )
+    throw ApiException.badRequest(ApiErrorCodes.CHILD_INVALID_TYPE)
   }
 }
 

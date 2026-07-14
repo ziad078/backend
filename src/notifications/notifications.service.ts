@@ -11,6 +11,7 @@ import { NotificationDelivery } from './enums/notification-delivery.enum'
 import type { NotificationSendJobPayload } from './interfaces/notification-job.interface'
 import { DispatchNotificationDto } from './dto/dispatch-notification.dto'
 import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto'
+import { buildPaginationMeta } from 'src/common/dto/pagination-query.dto'
 
 const DEFAULT_JOB_OPTIONS: JobOptions = {
   attempts: Number(process.env.NOTIFICATION_JOB_ATTEMPTS ?? 5),
@@ -51,7 +52,7 @@ export class NotificationsService {
       })
 
       if (!user?.email) {
-        throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED, 'Email is required for email notification delivery')
+        throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED)
       }
 
       payload.email = user.email
@@ -77,17 +78,17 @@ export class NotificationsService {
         select: ['id', 'email'],
       })
       if (!user) {
-        throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
+        throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
       }
       email = user.email
     }
 
     if (dto.delivery === NotificationDelivery.EMAIL && !email?.trim()) {
-      throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED, 'Email is required for email delivery')
+      throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED)
     }
 
     if (dto.delivery === NotificationDelivery.BOTH && !email?.trim()) {
-      throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED, 'Email is required for combined delivery when the user has no email on file')
+      throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED)
     }
 
     const payload: NotificationSendJobPayload = {
@@ -119,7 +120,14 @@ export class NotificationsService {
       isRead: boolean
       createdAt: Date
     }>
-    meta: { page: number; limit: number; total: number; totalPages: number }
+    meta: {
+      page: number
+      limit: number
+      total: number
+      totalPages: number
+      hasNextPage: boolean
+      hasPreviousPage: boolean
+    }
   }> {
     const page = query.page ?? 1
     const limit = query.limit ?? 20
@@ -139,7 +147,6 @@ export class NotificationsService {
     }
 
     const [rows, total] = await qb.getManyAndCount()
-    const totalPages = Math.max(1, Math.ceil(total / limit))
 
     return {
       data: rows.map((n) => ({
@@ -152,7 +159,7 @@ export class NotificationsService {
         isRead: n.isRead,
         createdAt: n.createdAt,
       })),
-      meta: { page, limit, total, totalPages },
+      meta: buildPaginationMeta(page, limit, total),
     }
   }
 
@@ -173,7 +180,7 @@ export class NotificationsService {
       .execute()
 
     if (!res.affected) {
-      throw ApiException.notFound(ApiErrorCodes.NOTIFICATION_NOT_FOUND, 'Notification not found')
+      throw ApiException.notFound(ApiErrorCodes.NOTIFICATION_NOT_FOUND)
     }
   }
 

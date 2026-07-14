@@ -18,6 +18,7 @@ import { SaveProgressDto } from './dto/save-progress.dto'
 import { SubmitAttemptDto } from './dto/submit-attempt.dto'
 import { EvaluationAttemptStatus } from './enums/evaluation-attempt-status.enum'
 import { EvaluationSlotService } from './services/evaluation-slot.service'
+import { ListAttemptsQueryDto } from './dto/list-attempts-query.dto'
 
 type JwtRequestUser = {
   userId: string
@@ -39,9 +40,7 @@ export class AttemptsController {
   @Get()
   @ApiOperation({ summary: 'Admin list/filter evaluation attempts' })
   getAttemptsForAdmin(
-    @Query('status') status: EvaluationAttemptStatus,
-    @Query('evaluationId') evaluationId: string,
-    @Query('childId') childId: string,
+    @Query() query: ListAttemptsQueryDto,
     @Req() req: AuthRequest,
   ) {
     const user = req.user as unknown as JwtRequestUser
@@ -52,10 +51,11 @@ export class AttemptsController {
         roles: user.roles.map((r) => r.name),
       },
       {
-        status,
-        evaluationId,
-        childId,
+        status: query.status,
+        evaluationId: query.evaluationId,
+        childId: query.childId,
       },
+      query,
     )
   }
 
@@ -64,6 +64,7 @@ export class AttemptsController {
   @ApiOperation({ summary: 'Get evaluation attempts for a child' })
   getAttemptsForChild(
     @Param('childId', new ParseUUIDPipe()) childId: string,
+    @Query() query: ListAttemptsQueryDto,
     @Req() req: AuthRequest,
   ) {
     const user = req.user as unknown as JwtRequestUser
@@ -71,7 +72,7 @@ export class AttemptsController {
     return this.service.getAttemptsForChild(childId, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
-    })
+    }, query)
   }
 
   @Roles(UserRole.PARENT)

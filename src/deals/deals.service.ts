@@ -46,7 +46,7 @@ export class DealsService {
       where: { id: dto.activityId },
     })
     if (!activity) {
-      throw ApiException.notFound(ApiErrorCodes.ACTIVITY_NOT_FOUND, 'Activity not found')
+      throw ApiException.notFound(ApiErrorCodes.ACTIVITY_NOT_FOUND)
     }
 
     const organizationId = await this.resolveOrganizationId(currentUser)
@@ -55,7 +55,7 @@ export class DealsService {
       relations: ['owner'],
     })
     if (!organization) {
-      throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found')
+      throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND)
     }
 
     const creator = await this.usersRepo.findOne({
@@ -63,7 +63,7 @@ export class DealsService {
       select: ['id', 'name', 'email'],
     })
     if (!creator) {
-      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
     }
 
     const deal = this.dealsRepo.create({
@@ -102,7 +102,7 @@ export class DealsService {
       relations: ['organization', 'organization.owner'],
     })
     if (!deal) {
-      throw ApiException.notFound(ApiErrorCodes.DEAL_NOT_FOUND, 'Deal not found')
+      throw ApiException.notFound(ApiErrorCodes.DEAL_NOT_FOUND)
     }
 
     this.ensureDealAcceptsBids(deal)
@@ -114,7 +114,7 @@ export class DealsService {
       },
     })
     if (existing) {
-      throw ApiException.badRequest(ApiErrorCodes.DEAL_DUPLICATE_PROPOSAL, 'You have already submitted a proposal for this deal')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_DUPLICATE_PROPOSAL)
     }
 
     const provider = await this.usersRepo.findOne({
@@ -122,7 +122,7 @@ export class DealsService {
       select: ['id', 'name', 'email'],
     })
     if (!provider) {
-      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, 'User not found')
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
     }
 
     const proposal = this.proposalsRepo.create({
@@ -151,15 +151,15 @@ export class DealsService {
       relations: ['deal', 'provider'],
     })
     if (!proposal) {
-      throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND, 'Proposal not found')
+      throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND)
     }
 
     if (proposal.provider.id !== currentUser.userId) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only update your own proposal')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     if (new Date() >= proposal.deal.deadline) {
-      throw ApiException.badRequest(ApiErrorCodes.DEAL_DEADLINE_PASSED, 'Cannot update proposal after deal deadline')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_DEADLINE_PASSED)
     }
 
     proposal.price = dto.price.toFixed(2)
@@ -168,11 +168,11 @@ export class DealsService {
 
   private ensureDealAcceptsBids(deal: Deal): void {
     if (deal.status !== DealStatus.OPEN) {
-      throw ApiException.badRequest(ApiErrorCodes.DEAL_CLOSED, 'This deal is closed')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_CLOSED)
     }
 
     if (new Date() >= new Date(deal.deadline)) {
-      throw ApiException.badRequest(ApiErrorCodes.DEAL_DEADLINE_PASSED, 'Deal deadline has passed')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_DEADLINE_PASSED)
     }
   }
 
@@ -185,7 +185,7 @@ export class DealsService {
         select: ['id'],
       })
       if (!org) {
-        throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found for owner')
+        throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND)
       }
       return org.id
     }
@@ -196,12 +196,12 @@ export class DealsService {
         relations: ['organization'],
       })
       if (!teacher?.organization?.id) {
-        throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, 'Organization not found for teacher')
+        throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND)
       }
       return teacher.organization.id
     }
 
-    throw ApiException.forbidden(ApiErrorCodes.DEAL_CANNOT_CREATE, 'You are not allowed to create deals')
+    throw ApiException.forbidden(ApiErrorCodes.DEAL_CANNOT_CREATE)
   }
 
   listDeals(status?: string) {
@@ -229,11 +229,11 @@ export class DealsService {
       where: { id: proposalId },
       relations: ['deal', 'deal.organization', 'deal.organization.owner'],
     })
-    if (!proposal) throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND, 'Proposal not found')
+    if (!proposal) throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND)
 
     const orgId = await this.resolveOrganizationId(currentUser)
     if (proposal.deal.organization.id !== orgId) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only manage your own organization deals')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     proposal.status = ProposalStatus.SELECTED
@@ -250,11 +250,11 @@ export class DealsService {
       where: { id: dealId },
       relations: ['organization', 'organization.owner'],
     })
-    if (!deal) throw ApiException.notFound(ApiErrorCodes.DEAL_NOT_FOUND, 'Deal not found')
+    if (!deal) throw ApiException.notFound(ApiErrorCodes.DEAL_NOT_FOUND)
 
     const orgId = await this.resolveOrganizationId(currentUser)
     if (deal.organization.id !== orgId) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only view proposals for your own deals')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     return this.proposalsRepo.find({
@@ -269,9 +269,9 @@ export class DealsService {
       where: { id: proposalId },
       relations: ['deal'],
     })
-    if (!proposal) throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND, 'Proposal not found')
+    if (!proposal) throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND)
     if (proposal.status !== ProposalStatus.SELECTED) {
-      throw ApiException.badRequest(ApiErrorCodes.DEAL_PROPOSAL_INVALID_STATE, 'Only selected proposals can be approved')
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_PROPOSAL_INVALID_STATE)
     }
 
     proposal.status = ProposalStatus.APPROVED

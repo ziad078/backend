@@ -63,7 +63,7 @@ export class OrganizationsController {
   ) {
     const isAdmin = hasRole(req.user.roles, UserRole.ADMIN)
     if (!isAdmin && req.user.userId !== ownerId) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only view your own organization')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
     return this.organizationsService.findByOwnerResponse(ownerId)
   }

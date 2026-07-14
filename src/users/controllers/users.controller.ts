@@ -64,7 +64,7 @@ export class UsersController {
   findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthRequest) {
     const isAdmin = hasRole(req.user.roles, UserRole.ADMIN)
     if (!isAdmin && req.user.userId !== id) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, 'You can only view your own profile')
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
     return this.usersService.findById(id)
   }

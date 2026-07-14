@@ -37,12 +37,12 @@ export class EvaluationProgressService {
         lock: { mode: 'pessimistic_write' },
       })
 
-      if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND, 'Attempt not found')
+      if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
 
       this.access.assertParentOwnership(attempt, actor)
 
       if (attempt.status !== EvaluationAttemptStatus.IN_PROGRESS) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED, 'Attempt is locked')
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
       }
 
       const rows = await this.answers.buildRows(manager, attempt, answers)

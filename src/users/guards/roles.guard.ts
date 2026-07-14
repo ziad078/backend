@@ -21,16 +21,12 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthRequest>()
     const user = request.user
     if (!user) {
-      throw ApiException.unauthorized(ApiErrorCodes.AUTH_UNAUTHORIZED, 'Authentication required')
+      throw ApiException.unauthorized(ApiErrorCodes.AUTH_UNAUTHORIZED)
     }
 
     const hasRole = user.roles.some((role) => roles.includes(role.name))
     if (!hasRole) {
-      throw ApiException.forbidden(
-        ApiErrorCodes.AUTH_FORBIDDEN,
-        'Insufficient permissions',
-        { requiredRoles: roles },
-      )
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN, { requiredRoles: roles })
     }
 
     return true
