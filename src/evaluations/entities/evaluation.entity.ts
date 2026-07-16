@@ -24,6 +24,9 @@ export class Evaluation {
   @Column()
   title: string
 
+  @Column({ type: 'boolean', default: false })
+  isArchived: boolean
+
   @Index()
   @Column({ type: 'uuid', nullable: true })
   institutionId: string | null

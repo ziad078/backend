@@ -4,6 +4,8 @@ import { Repository } from 'typeorm'
 import { AuditLog } from '../entities/audit-log.entity'
 import { AuditAction } from '../enums/audit-action.enum'
 import { Request } from 'express'
+import { ListAuditLogsDto } from '../dto/list-audit-logs.dto'
+import { buildPaginationMeta } from '../dto/pagination-query.dto'
 
 export interface AuditLogOptions {
   userId: string
@@ -168,6 +170,37 @@ export class AuditLoggingService {
       where: { userId },
       order: { createdAt: 'DESC' },
     })
+  }
+
+  async list(query: ListAuditLogsDto) {
+    const page = query.page ?? 1
+    const limit = query.limit ?? 20
+
+    const qb = this.auditLogRepository
+      .createQueryBuilder('log')
+      .orderBy('log.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+
+    if (query.entityType) {
+      qb.andWhere('log.entityType = :entityType', { entityType: query.entityType })
+    }
+    if (query.entityId) {
+      qb.andWhere('log.entityId = :entityId', { entityId: query.entityId })
+    }
+    if (query.userId) {
+      qb.andWhere('log.userId = :userId', { userId: query.userId })
+    }
+    if (query.action) {
+      qb.andWhere('log.action = :action', { action: query.action })
+    }
+
+    const [data, total] = await qb.getManyAndCount()
+
+    return {
+      data,
+      meta: buildPaginationMeta(page, limit, total),
+    }
   }
 
   private extractIpAddress(request?: Request): string | null {

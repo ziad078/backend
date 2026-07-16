@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { DataSource, Repository } from 'typeorm'
 import { UserRole } from 'src/common/enums/role.enum'
 import { CreateEvaluationDto } from './dto/create-evaluation.dto'
+import { UpdateEvaluationDto } from './dto/update-evaluation.dto'
 import { SaveProgressDto } from './dto/save-progress.dto'
 import { StartEvaluationDto } from './dto/start-evaluation.dto'
 import { SubmitAttemptDto } from './dto/submit-attempt.dto'
@@ -181,6 +182,22 @@ export class EvaluationsService {
     return evaluation
   }
 
+  async updateEvaluation(evaluationId: string, dto: UpdateEvaluationDto, actor: EvaluationActor) {
+    this.access.assertHasRole(actor, [UserRole.ADMIN])
+
+    const evaluation = await this.evalRepo.findOne({ where: { id: evaluationId } })
+    if (!evaluation) {
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
+    }
+
+    if (dto.title !== undefined) evaluation.title = dto.title
+    if (dto.ageFrom !== undefined) evaluation.ageFrom = dto.ageFrom
+    if (dto.ageTo !== undefined) evaluation.ageTo = dto.ageTo
+    if (dto.isArchived !== undefined) evaluation.isArchived = dto.isArchived
+
+    return this.evalRepo.save(evaluation)
+  }
+
   async getEvaluationForm(evaluationId: string, actor: EvaluationActor) {
     this.access.assertHasRole(actor, [UserRole.PARENT, UserRole.ADMIN])
 
@@ -204,6 +221,10 @@ export class EvaluationsService {
     })
 
     if (!evaluation) {
+      throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
+    }
+
+    if (evaluation.isArchived && actor.roles.includes(UserRole.PARENT)) {
       throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
@@ -255,7 +276,8 @@ export class EvaluationsService {
       const age = this.calculateAge(privateChild.birthDate)
       const evaluations = await this.evalRepo
         .createQueryBuilder('evaluation')
-        .where('(evaluation.ageFrom IS NULL OR evaluation.ageFrom <= :age)', {
+        .where('evaluation.isArchived = false')
+        .andWhere('(evaluation.ageFrom IS NULL OR evaluation.ageFrom <= :age)', {
           age,
         })
         .andWhere('(evaluation.ageTo IS NULL OR evaluation.ageTo >= :age)', {
@@ -281,7 +303,8 @@ export class EvaluationsService {
 
     const qb = this.evalRepo
       .createQueryBuilder('evaluation')
-      .where('(evaluation.ageFrom IS NULL OR evaluation.ageFrom <= :age)', {
+      .where('evaluation.isArchived = false')
+      .andWhere('(evaluation.ageFrom IS NULL OR evaluation.ageFrom <= :age)', {
         age,
       })
       .andWhere('(evaluation.ageTo IS NULL OR evaluation.ageTo >= :age)', {

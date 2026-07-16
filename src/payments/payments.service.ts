@@ -31,6 +31,8 @@ import { AuditLoggingService } from 'src/common/services/audit-logging.service'
 import { PaymentSessionService } from './application/payment-session.service'
 import { PaymentPurpose } from './enums/payment-purpose.enum'
 import type { PaymentWebhookContext } from './interfaces/payment-provider.interface'
+import { PaginationQueryDto, buildPaginationMeta } from 'src/common/dto/pagination-query.dto'
+import { ListPaymentsQueryDto } from './dto/list-payments-query.dto'
 
 const PAYMENT_QUEUE_JOB_OPTIONS: JobOptions = {
   attempts: Number(process.env.PAYMENT_JOB_ATTEMPTS ?? 8),
@@ -522,6 +524,44 @@ export class PaymentsService {
     }
 
     return this.executePaymentRetry(payment)
+  }
+
+  async listForAdmin(query: ListPaymentsQueryDto) {
+    const page = query.page ?? 1
+    const limit = query.limit ?? 20
+    const qb = this.payments
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.user', 'user')
+      .orderBy('payment.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+
+    if (query.status) {
+      qb.andWhere('payment.status = :status', { status: query.status })
+    }
+
+    const [rows, total] = await qb.getManyAndCount()
+
+    return {
+      data: rows.map((payment) => ({
+        id: payment.id,
+        userId: payment.userId,
+        userEmail: payment.user?.email ?? null,
+        userName: payment.user?.name ?? null,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        provider: payment.provider,
+        purpose: payment.metadata?.purpose ?? null,
+        capacityRequestId: payment.metadata?.capacityRequestId ?? null,
+        paymentUrl: payment.paymentUrl,
+        providerPaymentId: payment.providerPaymentId,
+        createdAt: payment.createdAt,
+        expiresAt: payment.expiresAt,
+        updatedAt: payment.updatedAt,
+      })),
+      meta: buildPaginationMeta(page, limit, total),
+    }
   }
 
   /**

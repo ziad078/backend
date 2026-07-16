@@ -56,6 +56,18 @@ export class Deal {
   @Column({ type: 'timestamptz' })
   deadline: Date
 
+  @Column({ type: 'int', nullable: true })
+  studentsAttended: number | null
+
+  @Column({ type: 'text', nullable: true })
+  attendanceNotes: string | null
+
+  @Column({ type: 'timestamptz', nullable: true })
+  attendanceRecordedAt: Date | null
+
+  @Column({ type: 'timestamptz', nullable: true })
+  closedAt: Date | null
+
   @OneToMany(() => Proposal, (proposal) => proposal.deal)
   proposals: Proposal[]
 

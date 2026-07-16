@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common'
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { Roles } from 'src/users/decorators/role.decorator'
 import { UserRole } from 'src/common/enums/role.enum'
@@ -6,6 +6,7 @@ import { type AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { EvaluationsService } from './evaluations.service'
 import { StartEvaluationDto } from './dto/start-evaluation.dto'
 import { CreateEvaluationDto } from './dto/create-evaluation.dto'
+import { UpdateEvaluationDto } from './dto/update-evaluation.dto'
 
 type JwtRequestUser = {
   userId: string
@@ -66,6 +67,21 @@ export class EvaluationsController {
   getDetails(@Param('id', new ParseUUIDPipe()) evaluationId: string, @Req() req: AuthRequest) {
     const user = req.user as unknown as JwtRequestUser
     return this.service.getEvaluationDetailsForAdmin(evaluationId, {
+      userId: user.userId,
+      roles: user.roles.map((r) => r.name),
+    })
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update evaluation metadata or archive status' })
+  update(
+    @Param('id', new ParseUUIDPipe()) evaluationId: string,
+    @Body() dto: UpdateEvaluationDto,
+    @Req() req: AuthRequest,
+  ) {
+    const user = req.user as unknown as JwtRequestUser
+    return this.service.updateEvaluation(evaluationId, dto, {
       userId: user.userId,
       roles: user.roles.map((r) => r.name),
     })

@@ -1,10 +1,11 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common'
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { UserRole } from 'src/common/enums/role.enum'
 import type { AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { Roles } from 'src/users/decorators/role.decorator'
 import { CreateDealDto } from './dto/create-deal.dto'
 import { CreateProposalDto } from './dto/create-proposal.dto'
+import { RecordDealAttendanceDto, RejectProposalDto } from './dto/deal-lifecycle.dto'
 import { DealsService } from './deals.service'
 
 @ApiTags('deals')
@@ -21,22 +22,22 @@ export class DealsController {
   }
 
   @Get()
-  @Roles(UserRole.ORGANIZATIONOWNER, UserRole.TEACHER, UserRole.ENRICHER)
+  @Roles(UserRole.ORGANIZATIONOWNER, UserRole.TEACHER, UserRole.ENRICHER, UserRole.ADMIN)
   @ApiOperation({ summary: 'List deals' })
   listDeals(@Query('status') status?: string) {
     return this.dealsService.listDeals(status)
   }
 
   @Get(':dealId')
-  @Roles(UserRole.ORGANIZATIONOWNER, UserRole.TEACHER, UserRole.ENRICHER)
+  @Roles(UserRole.ORGANIZATIONOWNER, UserRole.TEACHER, UserRole.ENRICHER, UserRole.ADMIN)
   @ApiOperation({ summary: 'Get deal details' })
   getDeal(@Param('dealId', new ParseUUIDPipe()) dealId: string) {
     return this.dealsService.findOne(dealId)
   }
 
   @Get(':dealId/proposals')
-  @Roles(UserRole.ORGANIZATIONOWNER)
-  @ApiOperation({ summary: 'List proposals for a deal (org owner)' })
+  @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'List proposals for a deal (org owner or admin)' })
   getProposals(@Param('dealId', new ParseUUIDPipe()) dealId: string, @Req() req: AuthRequest) {
     return this.dealsService.getProposalsForDeal(dealId, req.user)
   }
@@ -65,7 +66,39 @@ export class DealsController {
   @Post(':dealId/proposals/:proposalId/approve')
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Admin approve a selected proposal' })
-  adminApproveProposal(@Param('proposalId', new ParseUUIDPipe()) proposalId: string) {
-    return this.dealsService.adminApproveProposal(proposalId)
+  adminApproveProposal(
+    @Param('proposalId', new ParseUUIDPipe()) proposalId: string,
+    @Req() req: AuthRequest,
+  ) {
+    return this.dealsService.adminApproveProposal(proposalId, req.user)
+  }
+
+  @Post(':dealId/proposals/:proposalId/reject')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Admin reject a selected proposal' })
+  adminRejectProposal(
+    @Param('proposalId', new ParseUUIDPipe()) proposalId: string,
+    @Body() dto: RejectProposalDto,
+    @Req() req: AuthRequest,
+  ) {
+    return this.dealsService.adminRejectProposal(proposalId, dto, req.user)
+  }
+
+  @Patch(':dealId/attendance')
+  @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Record attendance for an executing deal' })
+  recordAttendance(
+    @Param('dealId', new ParseUUIDPipe()) dealId: string,
+    @Body() dto: RecordDealAttendanceDto,
+    @Req() req: AuthRequest,
+  ) {
+    return this.dealsService.recordDealAttendance(dealId, dto, req.user)
+  }
+
+  @Post(':dealId/close')
+  @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
+  @ApiOperation({ summary: 'Close a deal after attendance is recorded' })
+  closeDeal(@Param('dealId', new ParseUUIDPipe()) dealId: string, @Req() req: AuthRequest) {
+    return this.dealsService.closeDeal(dealId, req.user)
   }
 }

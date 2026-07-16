@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Headers,
   Param,
   ParseUUIDPipe,
@@ -20,6 +21,7 @@ import { type AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { PaymentsService } from './payments.service'
 import { CreatePaymentDto } from './dto/create-payment.dto'
 import { RetryPaymentDto } from './dto/retry-payment.dto'
+import { ListPaymentsQueryDto } from './dto/list-payments-query.dto'
 import { EvaluationSlotService } from 'src/evaluations/services/evaluation-slot.service'
 
 @ApiTags('payments')
@@ -29,6 +31,14 @@ export class PaymentsController {
     private readonly payments: PaymentsService,
     private readonly slots: EvaluationSlotService,
   ) {}
+
+  @Get()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List payments (admin only, paginated)' })
+  @Roles(UserRole.ADMIN)
+  listForAdmin(@Query() query: ListPaymentsQueryDto) {
+    return this.payments.listForAdmin(query)
+  }
 
   @Post()
   @ApiBearerAuth()

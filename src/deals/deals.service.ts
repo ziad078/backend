@@ -6,6 +6,7 @@ import { NotificationDelivery } from 'src/notifications/enums/notification-deliv
 import { NotificationsService } from 'src/notifications/notifications.service'
 import { Organization } from 'src/organizations/entities/organization.entity'
 import { UserRole } from 'src/common/enums/role.enum'
+import { hasRole } from 'src/common/utils/has-role.util'
 import { JwtRequestUser } from 'src/common/interfaces/jwt-request-user.interface'
 import { Teacher } from 'src/users/entities/teacher.entity'
 import { User } from 'src/users/entities/user.entity'
@@ -13,6 +14,7 @@ import { Repository } from 'typeorm'
 import { CreateDealDto } from './dto/create-deal.dto'
 import { CreateProposalDto } from './dto/create-proposal.dto'
 import { UpdateProposalDto } from './dto/update-proposal.dto'
+import { RecordDealAttendanceDto, RejectProposalDto } from './dto/deal-lifecycle.dto'
 import { DealStatus } from './enums/deal-status.enum'
 import { ProposalStatus } from './enums/proposal-status.enum'
 import { Activity } from './entities/activity.entity'
@@ -259,9 +261,11 @@ export class DealsService {
     })
     if (!deal) throw ApiException.notFound(ApiErrorCodes.DEAL_NOT_FOUND)
 
-    const orgId = await this.resolveOrganizationId(currentUser)
-    if (deal.organization.id !== orgId) {
-      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
+    if (!hasRole(currentUser.roles, UserRole.ADMIN)) {
+      const orgId = await this.resolveOrganizationId(currentUser)
+      if (deal.organization.id !== orgId) {
+        throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
+      }
     }
 
     return this.proposalsRepo.find({
@@ -271,10 +275,10 @@ export class DealsService {
     })
   }
 
-  async adminApproveProposal(proposalId: string) {
+  async adminApproveProposal(proposalId: string, currentUser: JwtRequestUser) {
     const proposal = await this.proposalsRepo.findOne({
       where: { id: proposalId },
-      relations: ['deal'],
+      relations: ['deal', 'deal.organization', 'deal.organization.owner', 'provider'],
     })
     if (!proposal) throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND)
     if (proposal.status !== ProposalStatus.SELECTED) {
@@ -282,7 +286,172 @@ export class DealsService {
     }
 
     proposal.status = ProposalStatus.APPROVED
-    return this.proposalsRepo.save(proposal)
+    proposal.deal.status = DealStatus.EXECUTING
+    await this.proposalsRepo.save(proposal)
+    await this.dealsRepo.save(proposal.deal)
+
+    await this.auditService.logApprove(
+      currentUser.userId,
+      currentUser.email || '',
+      currentUser.roles.map((r) => r.name).join(','),
+      'Proposal',
+      proposal.id,
+      'Admin approved selected deal proposal',
+    )
+
+    if (proposal.provider?.id) {
+      await this.notificationsService.enqueue({
+        userId: proposal.provider.id,
+        title: 'Proposal approved',
+        message: `Your proposal for deal ${proposal.deal.id} was approved. Activity execution can begin.`,
+        delivery: NotificationDelivery.IN_APP,
+      })
+    }
+
+    if (proposal.deal.organization?.owner?.id) {
+      await this.notificationsService.enqueue({
+        userId: proposal.deal.organization.owner.id,
+        title: 'Deal proposal approved',
+        message: `Admin approved the selected provider for your deal. Record attendance when the activity completes.`,
+        delivery: NotificationDelivery.IN_APP,
+      })
+    }
+
+    return proposal
+  }
+
+  async adminRejectProposal(
+    proposalId: string,
+    dto: RejectProposalDto,
+    currentUser: JwtRequestUser,
+  ) {
+    const proposal = await this.proposalsRepo.findOne({
+      where: { id: proposalId },
+      relations: ['deal', 'deal.organization', 'deal.organization.owner', 'provider'],
+    })
+    if (!proposal) throw ApiException.notFound(ApiErrorCodes.DEAL_PROPOSAL_NOT_FOUND)
+    if (proposal.status !== ProposalStatus.SELECTED) {
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_PROPOSAL_INVALID_STATE)
+    }
+
+    proposal.status = ProposalStatus.REJECTED
+    proposal.deal.status = DealStatus.OPEN
+    await this.proposalsRepo.save(proposal)
+    await this.dealsRepo.save(proposal.deal)
+
+    await this.auditService.logReject(
+      currentUser.userId,
+      currentUser.email || '',
+      currentUser.roles.map((r) => r.name).join(','),
+      'Proposal',
+      proposal.id,
+      dto.reason ?? 'Admin rejected selected deal proposal',
+    )
+
+    if (proposal.provider?.id) {
+      await this.notificationsService.enqueue({
+        userId: proposal.provider.id,
+        title: 'Proposal rejected',
+        message: dto.reason
+          ? `Your selected proposal was rejected: ${dto.reason}`
+          : 'Your selected proposal was rejected by an administrator.',
+        delivery: NotificationDelivery.IN_APP,
+      })
+    }
+
+    return proposal
+  }
+
+  async recordDealAttendance(
+    dealId: string,
+    dto: RecordDealAttendanceDto,
+    currentUser: JwtRequestUser,
+  ) {
+    const deal = await this.dealsRepo.findOne({
+      where: { id: dealId },
+      relations: ['organization', 'organization.owner'],
+    })
+    if (!deal) throw ApiException.notFound(ApiErrorCodes.DEAL_NOT_FOUND)
+
+    this.assertDealLifecycleAccess(deal, currentUser)
+
+    if (deal.status !== DealStatus.EXECUTING) {
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_INVALID_STATE)
+    }
+
+    if (dto.studentsAttended > deal.studentsCount) {
+      throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED, {
+        field: 'studentsAttended',
+      })
+    }
+
+    deal.studentsAttended = dto.studentsAttended
+    deal.attendanceNotes = dto.notes ?? null
+    deal.attendanceRecordedAt = new Date()
+    const saved = await this.dealsRepo.save(deal)
+
+    await this.auditService.logUpdate(
+      currentUser.userId,
+      currentUser.email || '',
+      currentUser.roles.map((r) => r.name).join(','),
+      'Deal',
+      deal.id,
+      { studentsAttended: null, attendanceRecordedAt: null },
+      {
+        studentsAttended: dto.studentsAttended,
+        attendanceRecordedAt: saved.attendanceRecordedAt,
+      },
+      'Recorded deal attendance',
+    )
+
+    return saved
+  }
+
+  async closeDeal(dealId: string, currentUser: JwtRequestUser) {
+    const deal = await this.dealsRepo.findOne({
+      where: { id: dealId },
+      relations: ['organization', 'organization.owner'],
+    })
+    if (!deal) throw ApiException.notFound(ApiErrorCodes.DEAL_NOT_FOUND)
+
+    this.assertDealLifecycleAccess(deal, currentUser)
+
+    if (deal.status !== DealStatus.EXECUTING) {
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_INVALID_STATE)
+    }
+
+    if (deal.studentsAttended == null || deal.attendanceRecordedAt == null) {
+      throw ApiException.badRequest(ApiErrorCodes.DEAL_ATTENDANCE_REQUIRED)
+    }
+
+    const oldStatus = deal.status
+    deal.status = DealStatus.CLOSED
+    deal.closedAt = new Date()
+    const saved = await this.dealsRepo.save(deal)
+
+    await this.auditService.logUpdate(
+      currentUser.userId,
+      currentUser.email || '',
+      currentUser.roles.map((r) => r.name).join(','),
+      'Deal',
+      deal.id,
+      { status: oldStatus },
+      { status: DealStatus.CLOSED, closedAt: saved.closedAt },
+      'Closed deal after execution',
+    )
+
+    return saved
+  }
+
+  private assertDealLifecycleAccess(
+    deal: Deal,
+    currentUser: JwtRequestUser,
+  ): void {
+    if (hasRole(currentUser.roles, UserRole.ADMIN)) return
+
+    if (deal.organization?.owner?.id === currentUser.userId) return
+
+    throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
   }
 
   private async notifyServiceProviders(dealId: string): Promise<void> {
