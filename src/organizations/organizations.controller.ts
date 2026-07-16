@@ -20,6 +20,9 @@ import { OrganizationStatusQueryDto } from './dto/organization-status-query.dto'
 import { RejectOrganizationDto } from './dto/reject-organization.dto'
 import type { AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { hasRole } from 'src/common/utils/has-role.util'
+import { AuditLog } from 'src/common/decorators/audit-log.decorator'
+import { AuditAction } from 'src/common/enums/audit-action.enum'
+import { OrganizationResponseDto } from './dto/organization-response.dto'
 
 @ApiTags('organizations')
 @ApiBearerAuth()
@@ -50,8 +53,17 @@ export class OrganizationsController {
 
   @Roles(UserRole.ADMIN, UserRole.PARENT)
   @Get('by-parent/:parentProfileId')
-  @ApiOperation({ summary: 'Get organization linked to a parent profile' })
-  findByParentProfile(@Param('parentProfileId', new ParseUUIDPipe()) parentProfileId: string) {
+  @ApiOperation({ summary: 'Get organizations linked to a parent profile' })
+  async findByParentProfile(
+    @Param('parentProfileId', new ParseUUIDPipe()) parentProfileId: string,
+    @Req() req: AuthRequest,
+  ) {
+    if (!hasRole(req.user.roles, UserRole.ADMIN)) {
+      await this.organizationsService.assertParentProfileAccess(
+        parentProfileId,
+        req.user.userId,
+      )
+    }
     return this.organizationsService.findByParent(parentProfileId)
   }
 
@@ -71,6 +83,11 @@ export class OrganizationsController {
   @Roles(UserRole.ADMIN)
   @Patch(':id/approve')
   @ApiOperation({ summary: 'Approve a pending or rejected organization (admin)' })
+  @AuditLog({
+    action: AuditAction.ORGANIZATION_APPROVE,
+    entityType: 'Organization',
+    getEntityId: (data: OrganizationResponseDto) => data.id,
+  })
   approve(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthRequest) {
     return this.organizationsService.approve(id, req.user.userId)
   }
@@ -78,6 +95,11 @@ export class OrganizationsController {
   @Roles(UserRole.ADMIN)
   @Patch(':id/reject')
   @ApiOperation({ summary: 'Reject a pending or approved organization (admin)' })
+  @AuditLog({
+    action: AuditAction.ORGANIZATION_REJECT,
+    entityType: 'Organization',
+    getEntityId: (data: OrganizationResponseDto) => data.id,
+  })
   reject(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: RejectOrganizationDto,
@@ -92,7 +114,7 @@ export class OrganizationsController {
   async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthRequest) {
     const org = await this.organizationsService.findOneOrFail(id)
     this.organizationsService.assertCanAccessOrganization(org, req.user)
-    return this.organizationsService.findOne(id)
+    return OrganizationResponseDto.fromEntity(org)
   }
 
   @Roles(UserRole.ADMIN, UserRole.ORGANIZATIONOWNER)

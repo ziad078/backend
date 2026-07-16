@@ -23,7 +23,7 @@ import { UsersModule } from 'src/users/users.module'
   imports: [
     TypeOrmModule.forFeature([Deal, Proposal, Activity, User, Organization, Teacher, AuditLog]),
     NotificationsModule,
-    OrganizationsModule,
+    forwardRef(() => OrganizationsModule),
     forwardRef(() => UsersModule),
   ],
   controllers: [DealsController, ProposalsController, ActivitiesController],

@@ -1,5 +1,5 @@
 export enum OrganizationEvents {
   REGISTERED = 'organization.registered',
-  APPROVED = 'organization.opproved',
+  APPROVED = 'organization.approved',
   REJECTED = 'organization.rejected',
 }

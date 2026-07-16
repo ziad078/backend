@@ -155,10 +155,10 @@ export class AuthProvider {
           this.events.emit(OrganizationEvents.REGISTERED, {
             orgId: organization?.id,
             orgName: organization?.organizationName,
-            ownerId: organization?.ownerId,
-            ownerName: organization?.owner.name,
-            ownerEmail: organization?.owner.email,
-            ownerPhone: organization?.owner.phone,
+            ownerId: user.id,
+            ownerName: user.name,
+            ownerEmail: user.email,
+            ownerPhone: user.phone,
           })
           return {
             user,

@@ -2,6 +2,12 @@ import { ApprovalStatus } from 'src/common/enums/approval-status.enum'
 import { OrganizationType } from 'src/common/enums/organization-type.enum'
 import { Organization } from '../entities/organization.entity'
 
+export class OrganizationOwnerSummaryDto {
+  id: string
+  name: string
+  email: string
+}
+
 export class OrganizationResponseDto {
   id: string
   organizationName: string
@@ -13,9 +19,11 @@ export class OrganizationResponseDto {
   rejectedById: string | null
   rejectedAt: Date | null
   rejectionReason: string | null
+  owner?: OrganizationOwnerSummaryDto
+  createdAt?: Date | null
 
   static fromEntity(org: Organization): OrganizationResponseDto {
-    return {
+    const dto: OrganizationResponseDto = {
       id: org.id,
       organizationName: org.organizationName,
       organizationType: org.organizationType,
@@ -27,5 +35,16 @@ export class OrganizationResponseDto {
       rejectedAt: org.rejectedAt ?? null,
       rejectionReason: org.rejectionReason ?? null,
     }
+
+    if (org.owner) {
+      dto.owner = {
+        id: org.owner.id,
+        name: org.owner.name,
+        email: org.owner.email,
+      }
+      dto.createdAt = org.owner.createdAt ?? null
+    }
+
+    return dto
   }
 }

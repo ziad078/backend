@@ -70,7 +70,7 @@ export class OrgNotificationListener {
     ownerName: string
     orgName: string
     ownerId: string
-    rejectionReson: string
+    rejectionReason: string
   }) {
     await this.notifications.enqueue({
       delivery: NotificationDelivery.BOTH,
@@ -83,7 +83,7 @@ export class OrgNotificationListener {
       delivery: NotificationDelivery.BOTH,
       userId: payload.ownerId,
       title: 'نعتذر تم رفض مؤسستك',
-      message: `نعتذر عن رفض مؤسستك بسبب ${payload.rejectionReson} الرجاء التواصل مع الدعم`,
+      message: `نعتذر عن رفض مؤسستك بسبب ${payload.rejectionReason} الرجاء التواصل مع الدعم`,
       metadata: payload,
     })
   }

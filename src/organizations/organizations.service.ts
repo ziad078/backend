@@ -12,19 +12,26 @@ import { UserRole } from 'src/common/enums/role.enum'
 import { hasRole } from 'src/common/utils/has-role.util'
 import EventEmitter2 from 'eventemitter2'
 import { OrganizationEvents } from './enums/organization-events.enum'
+import { ParentProfile } from 'src/users/entities/parent-profile.entity'
 
 @Injectable()
 export class OrganizationsService {
   constructor(
     @InjectRepository(Organization)
     private organizationRepository: Repository<Organization>,
+    @InjectRepository(ParentProfile)
+    private parentProfileRepository: Repository<ParentProfile>,
     private readonly events: EventEmitter2,
   ) {}
 
   findAll(status?: ApprovalStatus) {
     const where = status ? { approvalStatus: status } : {}
     return this.organizationRepository
-      .find({ where, order: { organizationName: 'ASC' } })
+      .find({
+        where,
+        relations: ['owner'],
+        order: { organizationName: 'ASC' },
+      })
       .then((orgs) => orgs.map(OrganizationResponseDto.fromEntity))
   }
 
@@ -37,8 +44,11 @@ export class OrganizationsService {
     return OrganizationResponseDto.fromEntity(org)
   }
 
-  async findOneOrFail(id: string): Promise<Organization> {
-    const org = await this.organizationRepository.findOneBy({ id })
+  async findOneOrFail(id: string, relations: string[] = []): Promise<Organization> {
+    const org = await this.organizationRepository.findOne({
+      where: { id },
+      relations,
+    })
     if (!org) {
       throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, { id })
     }
@@ -62,10 +72,6 @@ export class OrganizationsService {
       .orWhere('child.parentId = :parentId', { parentId: id })
       .distinct(true)
       .getMany()
-
-    if (!orgs.length) {
-      throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, { id })
-    }
 
     return orgs.map(OrganizationResponseDto.fromEntity)
   }
@@ -91,6 +97,21 @@ export class OrganizationsService {
     throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
   }
 
+  async assertParentProfileAccess(parentProfileId: string, userId: string): Promise<void> {
+    const profile = await this.parentProfileRepository.findOne({
+      where: { id: parentProfileId },
+      select: ['id', 'userId'],
+    })
+
+    if (!profile) {
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND, { parentProfileId })
+    }
+
+    if (profile.userId !== userId) {
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
+    }
+  }
+
   async isOrgMember(userId: string, orgId: string): Promise<boolean> {
     const org = await this.organizationRepository.findOne({
       where: { id: orgId },
@@ -111,7 +132,7 @@ export class OrganizationsService {
   }
 
   async approve(id: string, adminId: string): Promise<OrganizationResponseDto> {
-    const org = await this.findOneOrFail(id)
+    const org = await this.findOneOrFail(id, ['owner'])
 
     if (org.approvalStatus === ApprovalStatus.APPROVED) {
       throw ApiException.conflict(ApiErrorCodes.ORGANIZATION_ALREADY_APPROVED)
@@ -126,10 +147,10 @@ export class OrganizationsService {
 
     const saved = await this.organizationRepository.save(org)
     this.events.emit(OrganizationEvents.APPROVED, {
-      orgId: org.id,
-      ownerName: org.owner.name,
-      orgName: org.organizationName,
-      ownerId: org.ownerId,
+      orgId: saved.id,
+      ownerName: org.owner?.name ?? '',
+      orgName: saved.organizationName,
+      ownerId: saved.ownerId,
     })
 
     return OrganizationResponseDto.fromEntity(saved)
@@ -140,7 +161,7 @@ export class OrganizationsService {
     adminId: string,
     rejectionReason: string,
   ): Promise<OrganizationResponseDto> {
-    const org = await this.findOneOrFail(id)
+    const org = await this.findOneOrFail(id, ['owner'])
 
     if (org.approvalStatus === ApprovalStatus.REJECTED) {
       throw ApiException.conflict(ApiErrorCodes.ORGANIZATION_ALREADY_REJECTED)
@@ -155,16 +176,24 @@ export class OrganizationsService {
 
     const saved = await this.organizationRepository.save(org)
     this.events.emit(OrganizationEvents.REJECTED, {
-      orgId: org.id,
-      ownerName: org.owner.name,
-      orgName: org.organizationName,
-      ownerId: org.ownerId,
-      rejectionReson: org.rejectionReason,
+      orgId: saved.id,
+      ownerName: org.owner?.name ?? '',
+      orgName: saved.organizationName,
+      ownerId: saved.ownerId,
+      rejectionReason: saved.rejectionReason ?? rejectionReason,
     })
     return OrganizationResponseDto.fromEntity(saved)
   }
 
   async update(id: string, updateOrganizationDto: UpdateOrganizationDto, actor: JwtRequestUser) {
+    const hasUpdates =
+      updateOrganizationDto.organizationName !== undefined ||
+      updateOrganizationDto.organizationType !== undefined
+
+    if (!hasUpdates) {
+      throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED)
+    }
+
     const org = await this.findOneOrFail(id)
     this.assertCanAccessOrganization(org, actor)
 

@@ -48,7 +48,7 @@ import { ParentProfilesService } from './services/parent-profiles.service'
   imports: [
     TypeOrmModule.forFeature([User, Role, Teacher, Enricher, ParentProfile, ParentOrganization]),
     forwardRef(() => DealsModule),
-    OrganizationsModule,
+    forwardRef(() => OrganizationsModule),
     SessionModule,
     PassportModule,
     forwardRef(() => NotificationsModule),
