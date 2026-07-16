@@ -5,10 +5,11 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
   type RawBodyRequest,
 } from '@nestjs/common'
-import { ApiBearerAuth, ApiOperation, ApiTags, ApiHeader } from '@nestjs/swagger'
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger'
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import type { Request } from 'express'
@@ -31,28 +32,27 @@ export class PaymentsController {
 
   @Post()
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a SAR checkout session (Moyasar)' })
+  @ApiOperation({ summary: 'Create a SAR Paymob checkout session' })
   @Roles(UserRole.PARENT)
   create(@Body() dto: CreatePaymentDto, @Req() req: AuthRequest) {
     return this.payments.createPayment(req.user.userId, dto)
   }
 
-  @Post('webhook')
+  @Post('webhook/paymob')
   @Public()
   @ApiOperation({
-    summary: 'Provider webhook (signature-validated, idempotent, queued)',
+    summary: 'Paymob transaction webhook (HMAC-validated, idempotent, queued)',
   })
-  @ApiHeader({
-    name: 'x-moyasar-signature',
-    required: true,
-    description: 'HMAC-SHA256 hex digest of the raw body',
-  })
-  webhook(@Req() req: RawBodyRequest<Request>, @Headers('x-moyasar-signature') signature?: string) {
+  @ApiQuery({ name: 'hmac', required: true, description: 'Paymob SHA-512 HMAC digest' })
+  paymobWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Query() query: Record<string, string>,
+  ) {
     const raw = req.rawBody
     if (!raw?.length) {
       throw ApiException.badRequest(ApiErrorCodes.PAYMENT_WEBHOOK_MISSING)
     }
-    return this.payments.handleWebhook(raw, signature)
+    return this.payments.handleWebhook(raw, { query })
   }
 
   @Post(':attemptId/initiate')

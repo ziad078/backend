@@ -1,6 +1,7 @@
 export type ProcessPaymentWebhookJobPayload = {
   providerPaymentId: string
-  /** Raw JSON string (re-parsed in worker). */
+  merchantReference?: string | null
+  webhookStatus?: 'paid' | 'failed' | 'pending'
   rawBody: string
 }
 

@@ -1,5 +1,5 @@
 export enum PaymentProviderEnum {
-  MOYASAR = 'moyasar',
+  PAYMOB = 'paymob',
   PAYTABS = 'paytabs',
   HYPERPAY = 'hyperpay',
 }

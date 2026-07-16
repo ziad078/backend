@@ -84,7 +84,7 @@ export class EvaluationsController {
     })
   }
 
-  @Roles(UserRole.PARENT)
+  @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
   @Post(':id/start')
   @ApiOperation({ summary: 'Start an evaluation attempt for a child' })
   start(

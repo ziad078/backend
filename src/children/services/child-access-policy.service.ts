@@ -79,6 +79,13 @@ export class ChildAccessPolicy {
       if (hasRole(actor.roles, UserRole.ORGANIZATIONOWNER) && org?.ownerId === actor.userId) {
         return
       }
+
+      if (hasRole(actor.roles, UserRole.TEACHER)) {
+        const teacherUserId = child.class?.teacher?.user?.id
+        if (teacherUserId === actor.userId) {
+          return
+        }
+      }
     }
 
     throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)

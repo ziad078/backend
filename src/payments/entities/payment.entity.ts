@@ -12,7 +12,12 @@ import {
 import { PaymentStatusEnum } from '../enums/payment-status.enum'
 import { PaymentProviderEnum } from '../enums/payment-provider.enum'
 
+import { PaymentPurpose } from '../enums/payment-purpose.enum'
+
 export type PaymentMetadata = {
+  purpose?: PaymentPurpose
+  capacityRequestId?: string
+  capacityIncrease?: number
   privateChildId?: string
   attemptRequestId?: string
   privateAttemptId?: string

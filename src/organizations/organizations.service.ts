@@ -54,19 +54,20 @@ export class OrganizationsService {
   }
 
   async findByParent(id: string) {
-    const org = await this.organizationRepository
+    const orgs = await this.organizationRepository
       .createQueryBuilder('org')
       .leftJoin('parent_organizations', 'link', 'link.organizationId = org.id')
       .leftJoin('organization_children', 'child', 'child.organizationId = org.id')
       .where('link.parentId = :parentId', { parentId: id })
       .orWhere('child.parentId = :parentId', { parentId: id })
-      .getOne()
+      .distinct(true)
+      .getMany()
 
-    if (!org) {
+    if (!orgs.length) {
       throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND, { id })
     }
 
-    return OrganizationResponseDto.fromEntity(org)
+    return orgs.map(OrganizationResponseDto.fromEntity)
   }
 
   async findByOwner(ownerId: string) {

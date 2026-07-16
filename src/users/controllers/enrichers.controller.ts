@@ -18,21 +18,24 @@ export class EnrichersController {
   @Roles(UserRole.ENRICHER)
   @Get('deals')
   @ApiOperation({ summary: 'List available open deals for providers' })
-  listAvailableDeals() {
+  async listAvailableDeals(@Req() req: AuthRequest) {
+    await this.enrichersService.assertEnricherApproved(req.user.userId)
     return this.dealsService.listDeals('OPEN')
   }
 
   @Roles(UserRole.ENRICHER)
   @Get('deals/:dealId')
   @ApiOperation({ summary: 'Get deal details for provider' })
-  getDeal(@Param('dealId', new ParseUUIDPipe()) dealId: string) {
+  async getDeal(@Param('dealId', new ParseUUIDPipe()) dealId: string, @Req() req: AuthRequest) {
+    await this.enrichersService.assertEnricherApproved(req.user.userId)
     return this.dealsService.findOne(dealId)
   }
 
   @Roles(UserRole.ENRICHER)
   @Get('proposals')
   @ApiOperation({ summary: 'List my proposals' })
-  listMyProposals(@Req() req: AuthRequest) {
+  async listMyProposals(@Req() req: AuthRequest) {
+    await this.enrichersService.assertEnricherApproved(req.user.userId)
     return this.dealsService.listMyProposals(req.user.userId)
   }
 }

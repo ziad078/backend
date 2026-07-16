@@ -1,0 +1,30 @@
+# Database migrations
+
+Schema changes must go through TypeORM migrations. Do **not** enable `DB_SYNCHRONIZE` in production.
+
+## Commands
+
+From the `backend` directory:
+
+```bash
+# Generate a migration from entity changes (requires a running DB)
+npm run migration:generate -- src/database/migrations/MigrationName
+
+# Create an empty migration
+npm run migration:create -- src/database/migrations/MigrationName
+
+# Apply pending migrations
+npm run migration:run
+
+# Revert the last migration
+npm run migration:revert
+```
+
+## Environment
+
+| Variable | Description |
+|----------|-------------|
+| `DB_SYNCHRONIZE=true` | Dev only: auto-sync schema (never use in production) |
+| `DB_MIGRATIONS_RUN=true` | Run pending migrations on app startup |
+
+Production should set `NODE_ENV=production`, leave `DB_SYNCHRONIZE` unset, and run `npm run migration:run` during deploy (or set `DB_MIGRATIONS_RUN=true` once).

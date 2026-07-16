@@ -28,6 +28,9 @@ import {
   type PaymentSuccessEventPayload,
 } from './payments.events'
 import { AuditLoggingService } from 'src/common/services/audit-logging.service'
+import { PaymentSessionService } from './application/payment-session.service'
+import { PaymentPurpose } from './enums/payment-purpose.enum'
+import type { PaymentWebhookContext } from './interfaces/payment-provider.interface'
 
 const PAYMENT_QUEUE_JOB_OPTIONS: JobOptions = {
   attempts: Number(process.env.PAYMENT_JOB_ATTEMPTS ?? 8),
@@ -62,6 +65,7 @@ export class PaymentsService {
     @InjectRepository(PaymentWebhookDedup)
     private readonly webhookDedup: Repository<PaymentWebhookDedup>,
     private readonly auditService: AuditLoggingService,
+    private readonly paymentSessions: PaymentSessionService,
   ) {
     this.provider = providerToken as PaymentProvider
   }
@@ -82,7 +86,7 @@ export class PaymentsService {
   private resolveProvider(requested?: PaymentProviderEnum): PaymentProviderEnum {
     const fallback =
       (this.config.get<string>('DEFAULT_PAYMENT_PROVIDER') as PaymentProviderEnum | undefined) ??
-      PaymentProviderEnum.MOYASAR
+      PaymentProviderEnum.PAYMOB
     const code = requested ?? fallback
     if (code !== this.provider.providerCode) {
       throw ApiException.badRequest(ApiErrorCodes.PAYMENT_INVALID_PROVIDER, { providerCode: code, activeProvider: this.provider.providerCode })
@@ -120,20 +124,12 @@ export class PaymentsService {
       throw ApiException.badRequest(ApiErrorCodes.PAYMENT_CURRENCY_NOT_SUPPORTED)
     }
 
-    const providerCode = this.resolveProvider(input.provider)
+    this.resolveProvider(input.provider)
 
-    const childExists = await this.dataSource
-      .createQueryBuilder()
-      .from('private_children', 'c')
-      .innerJoin('parents', 'p', 'c."parentId" = p.id')
-      .where('c.id = :privateChildId', { privateChildId: input.privateChildId })
-      .andWhere('p."userId" = :userId', { userId })
-      .getCount()
-    if (childExists < 1) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
+    const metadata: PaymentMetadata = {
+      purpose: PaymentPurpose.PRIVATE_EXTRA_ATTEMPT,
+      privateChildId: input.privateChildId,
     }
-
-    const metadata: PaymentMetadata = { privateChildId: input.privateChildId }
     if (input.attemptRequestId) {
       metadata.attemptRequestId = input.attemptRequestId
     }
@@ -144,60 +140,15 @@ export class PaymentsService {
       metadata.description = input.description
     }
 
-    const amountStr = input.amount.toFixed(2)
-    const publicUrl =
-      this.config.get<string>('APP_PUBLIC_URL')?.replace(/\/$/, '') ?? 'http://localhost:3000'
-
-    const payment = this.payments.create({
+    return this.paymentSessions.createSession({
       userId,
+      amount: input.amount,
+      purpose: PaymentPurpose.PRIVATE_EXTRA_ATTEMPT,
+      metadata,
+      description: input.description,
       privateChildId: input.privateChildId,
       privateAttemptId: input.privateAttemptId ?? null,
-      paymentUrl: null,
-      amount: amountStr,
-      currency,
-      status: PaymentStatusEnum.PENDING,
-      provider: providerCode,
-      providerPaymentId: null,
-      metadata,
-      retryCount: 0,
-      maxRetries: this.maxRetriesDefault(),
-      expiresAt: this.resolveExpiresAt(Boolean(input.privateAttemptId)),
     })
-
-    const saved = (await this.payments.save(payment)) as unknown as Payment
-
-    try {
-      const session = await this.provider.createPayment({
-        amount: input.amount,
-        currency: 'SAR',
-        clientReferenceId: saved.id,
-        description: input.description,
-        successUrl: `${publicUrl}/payments/complete?ref=${encodeURIComponent(saved.id)}`,
-        cancelUrl: `${publicUrl}/payments/cancel?ref=${encodeURIComponent(saved.id)}`,
-        metadata: metadata as Record<string, unknown>,
-      })
-
-      saved.providerPaymentId = session.providerId
-      saved.paymentUrl = session.url
-      ;(await this.payments.save(saved)) as unknown as Payment
-
-      this.logger.log(`Created payment ${saved.id} (${providerCode}) session ${session.providerId}`)
-
-      return {
-        id: saved.id,
-        checkoutUrl: session.url,
-        expiresAt: saved.expiresAt,
-        status: saved.status,
-      }
-    } catch (err) {
-      this.logger.error(
-        `Provider session failed for payment ${saved.id}`,
-        err instanceof Error ? err.stack : undefined,
-      )
-      saved.status = PaymentStatusEnum.FAILED
-      ;(await this.payments.save(saved)) as unknown as Payment
-      throw err
-    }
   }
 
   async createPaymentForPrivateExtraAttempt(
@@ -214,11 +165,47 @@ export class PaymentsService {
     expiresAt: Date
     status: PaymentStatusEnum
   }> {
-    return this.createPayment(userId, {
+    return this.paymentSessions.createSession({
+      userId,
       amount: input.amount,
+      purpose: PaymentPurpose.PRIVATE_EXTRA_ATTEMPT,
+      metadata: {
+        purpose: PaymentPurpose.PRIVATE_EXTRA_ATTEMPT,
+        privateChildId: input.privateChildId,
+        privateAttemptId: input.privateAttemptId,
+        description: input.description,
+      },
+      description: input.description,
       privateChildId: input.privateChildId,
       privateAttemptId: input.privateAttemptId,
+    })
+  }
+
+  async createCapacityPayment(input: {
+    userId: string
+    capacityRequestId: string
+    requestedCapacity: number
+    amount: number
+    description?: string
+    billingData?: {
+      firstName: string
+      lastName: string
+      email: string
+      phoneNumber: string
+    }
+  }) {
+    return this.paymentSessions.createSession({
+      userId: input.userId,
+      amount: input.amount,
+      purpose: PaymentPurpose.CAPACITY_INCREASE,
+      metadata: {
+        purpose: PaymentPurpose.CAPACITY_INCREASE,
+        capacityRequestId: input.capacityRequestId,
+        capacityIncrease: input.requestedCapacity,
+        description: input.description,
+      },
       description: input.description,
+      billingData: input.billingData,
     })
   }
 
@@ -227,10 +214,10 @@ export class PaymentsService {
    */
   async handleWebhook(
     rawBody: Buffer,
-    signatureHeader: string | undefined,
+    context: PaymentWebhookContext,
   ): Promise<{ accepted: boolean; deduplicated?: boolean }> {
     try {
-      this.provider.verifyWebhookSignature(rawBody, signatureHeader)
+      this.provider.verifyWebhookSignature(rawBody, context)
     } catch (err) {
       if (err instanceof ApiException) throw err
       throw ApiException.unauthorized(ApiErrorCodes.PAYMENT_WEBHOOK_INVALID)
@@ -243,11 +230,12 @@ export class PaymentsService {
       throw ApiException.badRequest(ApiErrorCodes.PAYMENT_INVALID_JSON)
     }
 
-    const providerPaymentId = this.extractProviderPaymentIdFromBody(parsed)
-    if (!providerPaymentId) {
+    const webhookPayload = this.provider.parseWebhookPayload(parsed)
+    if (!webhookPayload) {
       throw ApiException.badRequest(ApiErrorCodes.PAYMENT_WEBHOOK_MISSING)
     }
 
+    const providerPaymentId = webhookPayload.providerPaymentId
     const payloadHash = createHash('sha256').update(rawBody).digest('hex')
 
     try {
@@ -262,6 +250,8 @@ export class PaymentsService {
 
     const jobPayload: ProcessPaymentWebhookJobPayload = {
       providerPaymentId,
+      merchantReference: webhookPayload.merchantReference,
+      webhookStatus: webhookPayload.status,
       rawBody: rawBody.toString('utf8'),
     }
 
@@ -280,12 +270,21 @@ export class PaymentsService {
    * Worker entry: verify with provider, persist terminal status in a transaction, chain side-effect jobs.
    */
   async runProcessPaymentWebhookJob(payload: ProcessPaymentWebhookJobPayload): Promise<void> {
-    const payment = await this.payments.findOne({
-      where: { providerPaymentId: payload.providerPaymentId },
-    })
+    let payment =
+      payload.merchantReference != null
+        ? await this.payments.findOne({ where: { id: payload.merchantReference } })
+        : null
 
     if (!payment) {
-      this.logger.warn(`No local payment for provider id ${payload.providerPaymentId}`)
+      payment = await this.payments.findOne({
+        where: { providerPaymentId: payload.providerPaymentId },
+      })
+    }
+
+    if (!payment) {
+      this.logger.warn(
+        `No local payment for provider id ${payload.providerPaymentId} / ref ${payload.merchantReference ?? 'n/a'}`,
+      )
       return
     }
 
@@ -300,19 +299,29 @@ export class PaymentsService {
       return
     }
 
-    const { status } = await this.provider.verifyPayment(payload.providerPaymentId)
+    let verifiedStatus = payload.webhookStatus ?? 'pending'
 
-    if (status === 'pending') {
+    if (verifiedStatus === 'pending') {
+      const verification = await this.provider.verifyPayment(payload.providerPaymentId)
+      verifiedStatus = verification.status
+    }
+
+    if (verifiedStatus === 'pending') {
       this.logger.log(`Provider reports pending for ${payment.id} — waiting for a later webhook`)
       return
     }
 
-    const nextStatus = status === 'paid' ? PaymentStatusEnum.PAID : PaymentStatusEnum.FAILED
+    const nextStatus =
+      verifiedStatus === 'paid' ? PaymentStatusEnum.PAID : PaymentStatusEnum.FAILED
+
+    if (payment.providerPaymentId !== payload.providerPaymentId) {
+      payment.providerPaymentId = payload.providerPaymentId
+    }
 
     await this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(Payment)
       const row = await repo.findOne({
-        where: { id: payment.id },
+        where: { id: payment!.id },
         lock: { mode: 'pessimistic_write' },
       })
 
@@ -322,6 +331,9 @@ export class PaymentsService {
       }
 
       row.status = nextStatus
+      if (payment!.providerPaymentId) {
+        row.providerPaymentId = payment!.providerPaymentId
+      }
       await repo.save(row)
     })
 
@@ -425,6 +437,64 @@ export class PaymentsService {
     this.events.emit(PAYMENT_EVENTS.FAILED, eventPayload)
   }
 
+  async resolveCheckoutSession(
+    paymentId: string,
+    userId: string,
+  ): Promise<{
+    id: string
+    checkoutUrl: string
+    expiresAt: Date
+    status: PaymentStatusEnum
+  }> {
+    const payment = await this.payments.findOne({ where: { id: paymentId } })
+    if (!payment) {
+      throw ApiException.notFound(ApiErrorCodes.PAYMENT_NOT_FOUND)
+    }
+    if (payment.userId !== userId) {
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
+    }
+    if (payment.status === PaymentStatusEnum.PAID) {
+      throw ApiException.badRequest(ApiErrorCodes.PAYMENT_FAILED, {
+        reason: 'Payment already completed',
+      })
+    }
+
+    const now = new Date()
+    if (
+      payment.status === PaymentStatusEnum.PENDING &&
+      payment.paymentUrl &&
+      payment.expiresAt > now
+    ) {
+      return {
+        id: payment.id,
+        checkoutUrl: payment.paymentUrl,
+        expiresAt: payment.expiresAt,
+        status: payment.status,
+      }
+    }
+
+    if (payment.status === PaymentStatusEnum.PENDING && payment.expiresAt <= now) {
+      payment.status = PaymentStatusEnum.EXPIRED
+      await this.payments.save(payment)
+    }
+
+    if (
+      payment.status === PaymentStatusEnum.FAILED ||
+      payment.status === PaymentStatusEnum.EXPIRED
+    ) {
+      if (payment.retryCount >= payment.maxRetries) {
+        throw ApiException.badRequest(ApiErrorCodes.PAYMENT_MAX_RETRIES)
+      }
+      return this.executePaymentRetry(payment)
+    }
+
+    if (payment.status === PaymentStatusEnum.PENDING) {
+      return this.paymentSessions.refreshSession(payment)
+    }
+
+    throw ApiException.badRequest(ApiErrorCodes.PAYMENT_FAILED)
+  }
+
   async retryPayment(
     paymentId: string,
     userId: string,
@@ -508,49 +578,6 @@ export class PaymentsService {
     expiresAt: Date
     status: PaymentStatusEnum
   }> {
-    const publicUrl =
-      this.config.get<string>('APP_PUBLIC_URL')?.replace(/\/$/, '') ?? 'http://localhost:3000'
-
-    payment.retryCount += 1
-    payment.status = PaymentStatusEnum.PENDING
-    payment.expiresAt = this.resolveExpiresAt(Boolean(payment.privateAttemptId))
-    payment.providerPaymentId = null
-    await this.payments.save(payment)
-
-    const amountNum = Number(payment.amount)
-
-    try {
-      const session = await this.provider.createPayment({
-        amount: amountNum,
-        currency: 'SAR',
-        clientReferenceId: payment.id,
-        description:
-          typeof payment.metadata.description === 'string'
-            ? payment.metadata.description
-            : undefined,
-        successUrl: `${publicUrl}/payments/complete?ref=${encodeURIComponent(payment.id)}`,
-        cancelUrl: `${publicUrl}/payments/cancel?ref=${encodeURIComponent(payment.id)}`,
-        metadata: payment.metadata as Record<string, unknown>,
-      })
-
-      payment.providerPaymentId = session.providerId
-      payment.paymentUrl = session.url
-      await this.payments.save(payment)
-
-      return {
-        id: payment.id,
-        checkoutUrl: session.url,
-        expiresAt: payment.expiresAt,
-        status: payment.status,
-      }
-    } catch (err) {
-      this.logger.error(
-        `Retry provider session failed for ${payment.id}`,
-        err instanceof Error ? err.stack : undefined,
-      )
-      payment.status = PaymentStatusEnum.FAILED
-      await this.payments.save(payment)
-      throw err
-    }
+    return this.paymentSessions.refreshSession(payment)
   }
 }

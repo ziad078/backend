@@ -4,12 +4,18 @@ export type CreatePaymentProviderInput = {
   /** Amount in major units (e.g. SAR with 2 decimal places). */
   amount: number
   currency: 'SAR'
-  /** Our payment row id — used for idempotency with the provider. */
+  /** Our payment row id — used as merchant reference with the provider. */
   clientReferenceId: string
   description?: string
   successUrl: string
   cancelUrl?: string
   metadata: Record<string, unknown>
+  billingData?: {
+    firstName: string
+    lastName: string
+    email: string
+    phoneNumber: string
+  }
 }
 
 export type CreatePaymentProviderResult = {
@@ -21,9 +27,19 @@ export type PaymentVerificationResult = {
   status: 'paid' | 'failed' | 'pending'
 }
 
+export type PaymentWebhookContext = {
+  signatureHeader?: string
+  query?: Record<string, string>
+}
+
+export type ParsedPaymentWebhook = {
+  providerPaymentId: string
+  merchantReference: string | null
+  status: 'paid' | 'failed' | 'pending'
+}
+
 /**
- * Pluggable payment provider (Moyasar today; PayTabs / HyperPay later).
- * Webhook verification is provider-specific and lives alongside the implementation.
+ * Pluggable payment provider (Paymob primary).
  */
 export interface PaymentProvider {
   readonly providerCode: PaymentProviderEnum
@@ -32,12 +48,11 @@ export interface PaymentProvider {
 
   verifyPayment(providerPaymentId: string): Promise<PaymentVerificationResult>
 
-  /**
-   * Validate webhook authenticity (e.g. HMAC). Throws if invalid.
-   */
-  verifyWebhookSignature(rawBody: Buffer, signatureHeader: string | undefined): void
+  verifyWebhookSignature(rawBody: Buffer, context: PaymentWebhookContext): void
 
-  /** Parse provider reference id from a verified JSON webhook body. */
+  parseWebhookPayload(body: unknown): ParsedPaymentWebhook | null
+
+  /** @deprecated Use parseWebhookPayload — kept for backward compatibility in tests. */
   extractProviderPaymentId(body: unknown): string | null
 }
 

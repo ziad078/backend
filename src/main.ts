@@ -11,6 +11,8 @@ async function bootstrap() {
     rawBody: true,
   })
 
+  app.enableShutdownHooks()
+
   app.useGlobalFilters(new AllExceptionsFilter())
 
   app.useGlobalPipes(
@@ -64,11 +66,12 @@ async function bootstrap() {
     .addTag('deals', 'Deal/opportunity marketplace')
     .addTag('proposals', 'Enricher proposal Management')
     .addTag('activities', 'Activity categories for deals')
-    .addTag('payments', 'Payment processing via Moyasar')
+    .addTag('payments', 'Payment processing via Paymob')
     .addTag('notifications', 'In-app and email notifications')
     .addTag('uploads', 'File uploads (images, PDFs)')
     .addTag('capacity-requests', 'Child capacity increase requests')
     .addTag('sessions', 'User session management')
+    .addTag('health', 'Health and readiness probes')
     .build()
 
   const document = SwaggerModule.createDocument(app, config, {

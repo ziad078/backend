@@ -11,6 +11,7 @@ import { NotificationsService } from 'src/notifications/notifications.service'
 import { PaymentsService } from 'src/payments/payments.service'
 import type { PaymentSuccessEventPayload } from 'src/payments/payments.events'
 import { PAYMENT_EVENTS } from 'src/payments/payments.events'
+import { PaymentPurpose } from 'src/payments/enums/payment-purpose.enum'
 import { AttemptUsageService } from '../attempt-usage.service'
 import { ParentProfilesService } from 'src/users/services/parent-profiles.service'
 import { EvaluationSlot } from '../entities/evaluation-slot.entity'
@@ -342,6 +343,10 @@ export class EvaluationSlotService {
 
   @OnEvent(PAYMENT_EVENTS.SUCCESS)
   async handlePaymentSuccess(payload: PaymentSuccessEventPayload): Promise<void> {
+    if (payload.metadata.purpose !== PaymentPurpose.PRIVATE_EXTRA_ATTEMPT) {
+      return
+    }
+
     const privateId = payload.metadata.privateAttemptId
     if (!privateId || typeof privateId !== 'string') return
 

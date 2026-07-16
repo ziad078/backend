@@ -61,7 +61,7 @@ export class CapacityRequestController {
   @AuditLog({
     action: AuditAction.APPROVE,
     entityType: 'CapacityRequest',
-    getEntityId: (data) => data.id,
+    getEntityId: (data) => data.capacityRequest?.id ?? data.id,
   })
   approve(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthRequest) {
     return this.capacityRequestService.approve(id, req.user, req)
@@ -77,5 +77,12 @@ export class CapacityRequestController {
   })
   reject(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthRequest) {
     return this.capacityRequestService.reject(id, req.user, req)
+  }
+
+  @Post(':id/checkout')
+  @Roles(UserRole.PARENT)
+  @ApiOperation({ summary: 'Resolve Paymob checkout URL for an approved capacity request' })
+  checkout(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthRequest) {
+    return this.capacityRequestService.resolveCheckout(id, req.user)
   }
 }

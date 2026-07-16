@@ -21,7 +21,12 @@ export class EvaluationProgressService {
   ) {}
 
   async saveProgress(attemptId: string, dto: SaveProgressDto, actor: EvaluationActor) {
-    this.access.assertHasRole(actor, [UserRole.PARENT])
+    this.access.assertHasRole(actor, [
+      UserRole.PARENT,
+      UserRole.TEACHER,
+      UserRole.ORGANIZATIONOWNER,
+      UserRole.ADMIN,
+    ])
 
     await this.submissions.maybeAutoSubmitIfExpired(attemptId)
 
@@ -34,12 +39,22 @@ export class EvaluationProgressService {
 
       const attempt = await attemptRepo.findOne({
         where: { id: attemptId },
+        relations: {
+          organizationChild: {
+            class: {
+              organization: { owner: true },
+              teacher: { user: true },
+            },
+          },
+          privateChild: true,
+          parent: true,
+        },
         lock: { mode: 'pessimistic_write' },
       })
 
       if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
 
-      this.access.assertParentOwnership(attempt, actor)
+      this.access.assertCanWriteAttempt(attempt, actor)
 
       if (attempt.status !== EvaluationAttemptStatus.IN_PROGRESS) {
         throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)

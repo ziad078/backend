@@ -20,6 +20,8 @@ import { Deal } from './entities/deal.entity'
 import { Proposal } from './entities/proposal.entity'
 import { AuditLoggingService } from 'src/common/services/audit-logging.service'
 import { DealAccessPolicy } from './policies/deal-access.policy'
+import { OrganizationsService } from 'src/organizations/organizations.service'
+import { EnrichersService } from 'src/users/services/enrichers.service'
 
 @Injectable()
 export class DealsService {
@@ -39,6 +41,8 @@ export class DealsService {
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditLoggingService,
     private readonly dealAccessPolicy: DealAccessPolicy,
+    private readonly organizationsService: OrganizationsService,
+    private readonly enrichersService: EnrichersService,
   ) {}
 
   async createDeal(dto: CreateDealDto, currentUser: JwtRequestUser) {
@@ -50,6 +54,7 @@ export class DealsService {
     }
 
     const organizationId = await this.resolveOrganizationId(currentUser)
+    await this.organizationsService.assertOrganizationApproved(organizationId)
     const organization = await this.organizationsRepo.findOne({
       where: { id: organizationId },
       relations: ['owner'],
@@ -97,6 +102,8 @@ export class DealsService {
   }
 
   async submitProposal(dealId: string, dto: CreateProposalDto, currentUser: JwtRequestUser) {
+    await this.enrichersService.assertEnricherApproved(currentUser.userId)
+
     const deal = await this.dealsRepo.findOne({
       where: { id: dealId },
       relations: ['organization', 'organization.owner'],

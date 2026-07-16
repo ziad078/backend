@@ -36,7 +36,6 @@ export class ChildrenController {
     @Req()
     req: AuthRequest,
   ) {
-    console.log('hi', createChildDto)
     return this.childrenService.createChild(createChildDto, req.user)
   }
 

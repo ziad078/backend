@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common'
+import { Module, forwardRef } from '@nestjs/common'
 import { UsersController } from './controllers/users.controller'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { User } from './entities/user.entity'
@@ -47,7 +47,7 @@ import { ParentProfilesService } from './services/parent-profiles.service'
   ],
   imports: [
     TypeOrmModule.forFeature([User, Role, Teacher, Enricher, ParentProfile, ParentOrganization]),
-    DealsModule,
+    forwardRef(() => DealsModule),
     OrganizationsModule,
     SessionModule,
     PassportModule,

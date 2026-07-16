@@ -114,7 +114,7 @@ export class AttemptsController {
     return this.slots.requestExtraAttempt(childId, user.userId)
   }
 
-  @Roles(UserRole.PARENT)
+  @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
   @Patch(':id/save')
   @ApiOperation({ summary: 'Save evaluation attempt progress' })
   save(
@@ -129,7 +129,7 @@ export class AttemptsController {
     })
   }
 
-  @Roles(UserRole.PARENT)
+  @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
   @Post(':id/submit')
   @ApiOperation({ summary: 'Submit evaluation attempt final answers' })
   submit(

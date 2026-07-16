@@ -26,6 +26,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
 import { CapacityModule } from './capacity/capacity.module'
 import { ApiResponseSuccessIntercepter } from './common/interceptors/api-success-response.interceptor'
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware'
+import { buildTypeOrmOptions } from './database/typeorm-options'
 
 @Module({
   imports: [
@@ -71,16 +72,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware'
       }),
     }),
     ChildrenModule,
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT ?? 5432),
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_DATABASE,
-      autoLoadEntities: true,
-      synchronize: process.env.DB_SYNCHRONIZE === 'true',
-    }),
+    TypeOrmModule.forRoot(buildTypeOrmOptions()),
     UsersModule,
     OrganizationsModule,
     SessionModule,

@@ -1,5 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
-import { OnEvent } from '@nestjs/event-emitter'
+import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { EntityManager, Repository } from 'typeorm'
 import { ParentProfile } from '../entities/parent-profile.entity'
@@ -234,7 +233,6 @@ export class ParentProfilesService {
 
       const userManager = manager ?? this.userRepository.manager
       const parentPassword = this.createTemporaryPassword()
-      console.log(parentPassword)
       parent = await this.usersService.create(
         {
           name: parentData.name,
@@ -258,24 +256,5 @@ export class ParentProfilesService {
   private createPlaceholderEmail(phone: string): string {
     const normalizedPhone = phone.replace(/\D/g, '')
     return `parent-${normalizedPhone}-${randomUUID()}@placeholder.ithraa.local`
-  }
-
-  @OnEvent('payment.success')
-  async handlePaymentSuccess(payload: { userId: string; metadata: Record<string, unknown> }) {
-    const capacityIncrease = payload.metadata?.capacityIncrease
-    if (!capacityIncrease) return
-
-    const profile = await this.parentProfileRepository.findOne({
-      where: { userId: payload.userId },
-    })
-    if (!profile) return
-
-    const increment = typeof capacityIncrease === 'number' ? capacityIncrease : 1
-    profile.maxChildren += increment
-    await this.parentProfileRepository.save(profile)
-    Logger.log(
-      `Increased maxChildren for user ${payload.userId} to ${profile.maxChildren}`,
-      'ParentProfilesService',
-    )
   }
 }

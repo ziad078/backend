@@ -32,7 +32,12 @@ export class EvaluationAttemptLifecycleService {
   ) {}
 
   async startEvaluation(evaluationId: string, dto: StartEvaluationDto, actor: EvaluationActor) {
-    this.access.assertHasRole(actor, [UserRole.PARENT])
+    this.access.assertHasRole(actor, [
+      UserRole.PARENT,
+      UserRole.TEACHER,
+      UserRole.ORGANIZATIONOWNER,
+      UserRole.ADMIN,
+    ])
 
     const evaluation = await this.evaluations.findOne({
       where: { id: evaluationId },
@@ -43,36 +48,53 @@ export class EvaluationAttemptLifecycleService {
     }
 
     const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
-    if (!parentProfile) {
-      throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND)
-    }
 
     let child: OrganizationChild | PrivateChild
     let isPrivateChild: boolean
 
-    // Try to find as private child first
-    const privateChild = await this.privateChildren.findOne({
-      where: { id: dto.childId, parent: { id: parentProfile.id } },
-      relations: { parent: true },
-    })
+    const privateChild =
+      parentProfile != null
+        ? await this.privateChildren.findOne({
+            where: { id: dto.childId, parent: { id: parentProfile.id } },
+            relations: { parent: true },
+          })
+        : null
 
     if (privateChild) {
       child = privateChild
       isPrivateChild = true
     } else {
-      // Try to find as organization child
       const orgChild = await this.organizationChildren.findOne({
         where: { id: dto.childId },
-        relations: { parent: true, class: { organization: true } },
+        relations: {
+          parent: true,
+          class: { organization: { owner: true }, teacher: { user: true } },
+        },
       })
 
-      if (!orgChild || orgChild.parent.id !== parentProfile.id) {
+      if (!orgChild) {
         throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
       }
 
-      child = orgChild
-      isPrivateChild = false
+      if (parentProfile && orgChild.parent.id === parentProfile.id) {
+        child = orgChild
+        isPrivateChild = false
+      } else if (
+        actor.roles.includes(UserRole.TEACHER) ||
+        actor.roles.includes(UserRole.ORGANIZATIONOWNER) ||
+        actor.roles.includes(UserRole.ADMIN)
+      ) {
+        this.access.assertOrgChildStaffAccess(orgChild, actor)
+        child = orgChild
+        isPrivateChild = false
+      } else {
+        throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
+      }
     }
+
+    const attemptParentProfile = isPrivateChild
+      ? (child as PrivateChild).parent
+      : (child as OrganizationChild).parent
 
     if (
       !isPrivateChild &&
@@ -102,9 +124,9 @@ export class EvaluationAttemptLifecycleService {
     const attempt = await this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(EvaluationAttempt)
 
-      const whereClause: any = {
+      const whereClause: Record<string, unknown> = {
         evaluationId,
-        parentId: parentProfile.id,
+        parentId: attemptParentProfile.id,
       }
 
       if (isPrivateChild) {
@@ -133,7 +155,7 @@ export class EvaluationAttemptLifecycleService {
       if (last?.status === EvaluationAttemptStatus.APPROVED) {
         limitReachedPayload = {
           evaluationId,
-          parentId: parentProfile.id,
+          parentId: attemptParentProfile.id,
           childId: dto.childId,
           attempts: count,
           reason: 'already_approved',
@@ -147,7 +169,7 @@ export class EvaluationAttemptLifecycleService {
         const entitlement = await this.slots.findEntitlementForNext(
           manager,
           dto.childId,
-          parentProfile.id,
+          attemptParentProfile.id,
         )
 
         if (!entitlement) {
@@ -158,7 +180,7 @@ export class EvaluationAttemptLifecycleService {
       } else if (count >= 2) {
         limitReachedPayload = {
           evaluationId,
-          parentId: parentProfile.id,
+          parentId: attemptParentProfile.id,
           childId: dto.childId,
           attempts: count,
           reason: 'max_attempts',
@@ -166,9 +188,9 @@ export class EvaluationAttemptLifecycleService {
         throw ApiException.conflict(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS)
       }
 
-      const createData: any = {
+      const createData: Record<string, unknown> = {
         evaluationId,
-        parentId: parentProfile.id,
+        parentId: attemptParentProfile.id,
         attemptNumber: count + 1,
         status: EvaluationAttemptStatus.IN_PROGRESS,
         expiresAt,
