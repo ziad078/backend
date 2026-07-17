@@ -24,6 +24,11 @@ import { ParentOrganizationSource } from 'src/users/enums/parent-organization-so
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { PaginationQueryDto, buildPaginationMeta } from 'src/common/dto/pagination-query.dto'
+import { ParentProfileSummaryDto } from './dto/parent-profile-summary.dto'
+import {
+  NotificationTemplateKeys,
+  NotificationTypes,
+} from 'src/common/constants/notification-template-keys'
 
 export type CreateChildResponse = {
   status: 'CREATED' | 'TRANSFER_REQUIRED'
@@ -56,6 +61,28 @@ export class ChildrenService {
     return !!child
   }
 
+  async getParentProfileSummary(parentUserId: string): Promise<ParentProfileSummaryDto> {
+    const parentProfile = await this.parentProfilesService.ensureParentProfileForUser(parentUserId)
+
+    const [privateChildrenCount, organizationChildrenCount] = await Promise.all([
+      this.privateChildrenRepository.count({
+        where: { parent: { id: parentProfile.id } },
+      }),
+      this.organizationChildrenRepository.count({
+        where: { parent: { id: parentProfile.id } },
+      }),
+    ])
+
+    return {
+      id: parentProfile.id,
+      userId: parentProfile.userId,
+      maxChildren: parentProfile.maxChildren,
+      privateChildrenCount,
+      organizationChildrenCount,
+      totalChildrenCount: privateChildrenCount + organizationChildrenCount,
+    }
+  }
+
   async createChildByParent(parentUserId: string, dto: CreateChildByParentDto) {
     return this.dataSource.transaction(async (manager) => {
       // Ensure ParentProfile exists for current user
@@ -74,8 +101,10 @@ export class ChildrenService {
         await this.notificationsService.enqueue({
           delivery: NotificationDelivery.IN_APP,
           userId: parentUserId,
-          title: 'Child limit reached',
-          message: `You have reached the maximum of ${parentProfile.maxChildren} children on your account.`,
+          title: NotificationTemplateKeys.CHILD_LIMIT_REACHED_TITLE,
+          message: NotificationTemplateKeys.CHILD_LIMIT_REACHED_MESSAGE,
+          type: NotificationTypes.CHILD_LIMIT,
+          metadata: { max: parentProfile.maxChildren },
         })
         throw ApiException.badRequest(ApiErrorCodes.CHILD_LIMIT_REACHED)
       }
@@ -94,11 +123,7 @@ export class ChildrenService {
   }
 
   async findPrivateChildrenForParent(parentUserId: string, query?: PaginationQueryDto) {
-    // Resolve ParentProfile for user
-    const parentProfile = await this.parentProfilesService.findByUserId(parentUserId)
-    if (!parentProfile) {
-      return { data: [], meta: buildPaginationMeta(1, query?.limit ?? 20, 0) }
-    }
+    const parentProfile = await this.parentProfilesService.ensureParentProfileForUser(parentUserId)
 
     const page = query?.page ?? 1
     const limit = query?.limit ?? 20
@@ -133,11 +158,7 @@ export class ChildrenService {
   }
 
   async findOrgChildrenForParent(parentUserId: string, query?: PaginationQueryDto) {
-    // Resolve ParentProfile for user
-    const parentProfile = await this.parentProfilesService.findByUserId(parentUserId)
-    if (!parentProfile) {
-      return { data: [], meta: buildPaginationMeta(1, query?.limit ?? 20, 0) }
-    }
+    const parentProfile = await this.parentProfilesService.ensureParentProfileForUser(parentUserId)
 
     const page = query?.page ?? 1
     const limit = query?.limit ?? 20
@@ -177,11 +198,7 @@ export class ChildrenService {
    * Optional: Get organization children for a specific parent and organization.
    */
   async findOrgChildrenForParentByOrganization(parentUserId: string, organizationId: string, query?: PaginationQueryDto) {
-    // Resolve ParentProfile for user
-    const parentProfile = await this.parentProfilesService.findByUserId(parentUserId)
-    if (!parentProfile) {
-      return { data: [], meta: buildPaginationMeta(1, query?.limit ?? 20, 0) }
-    }
+    const parentProfile = await this.parentProfilesService.ensureParentProfileForUser(parentUserId)
 
     const page = query?.page ?? 1
     const limit = query?.limit ?? 20
@@ -266,8 +283,10 @@ export class ChildrenService {
         await this.notificationsService.enqueue({
           delivery: NotificationDelivery.IN_APP,
           userId: parentProfile.userId,
-          title: 'Child limit reached',
-          message: `Parent has reached the maximum of ${parentProfile.maxChildren} children on their account.`,
+          title: NotificationTemplateKeys.PARENT_CHILD_LIMIT_REACHED_TITLE,
+          message: NotificationTemplateKeys.PARENT_CHILD_LIMIT_REACHED_MESSAGE,
+          type: NotificationTypes.CHILD_LIMIT,
+          metadata: { max: parentProfile.maxChildren },
         })
         throw ApiException.forbidden(ApiErrorCodes.CHILD_LIMIT_REACHED)
       }

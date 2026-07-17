@@ -29,6 +29,11 @@ export const USER_TRANSLATIONS = {
   'USER.ALREADY_EXISTS': 'errors.user.alreadyExists',
 } as const
 
+// ─── Parents ─────────────────────────────────────────────
+export const PARENT_TRANSLATIONS = {
+  'PARENT.PROFILE_NOT_FOUND': 'errors.parent.profileNotFound',
+} as const
+
 // ─── Organizations ───────────────────────────────────────
 export const ORGANIZATION_TRANSLATIONS = {
   'ORGANIZATION.NOT_FOUND': 'errors.organization.notFound',
@@ -168,6 +173,7 @@ export const COMMON_TRANSLATIONS = {
 export const ERROR_CODE_TO_TRANSLATION: Record<string, string> = {
   ...AUTH_TRANSLATIONS,
   ...USER_TRANSLATIONS,
+  ...PARENT_TRANSLATIONS,
   ...ORGANIZATION_TRANSLATIONS,
   ...CHILD_TRANSLATIONS,
   ...GRADE_TRANSLATIONS,

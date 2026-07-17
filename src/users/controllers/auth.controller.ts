@@ -64,6 +64,7 @@ export class AuthController {
     return this.authService.enrichersSignup(dto)
   }
   @Public()
+  @Throttle({ auth: { limit: 10, ttl: 60_000 } })
   @Post('parent-signup')
   async parentSignup(@Body() dto: ParentSignupDto) {
     const alreadyExists = await this.authService.isAlreadyExits(dto.phone, dto.email)

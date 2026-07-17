@@ -90,7 +90,7 @@ export class ParentProfilesService {
       relations: ['user', 'organizationLinks', 'organizationChildren', 'privateChildren'],
     })
     if (!parentProfile) {
-      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
+      throw ApiException.notFound(ApiErrorCodes.PARENT_PROFILE_NOT_FOUND, { userId })
     }
     return parentProfile
   }
@@ -115,7 +115,7 @@ export class ParentProfilesService {
     })
 
     if (!profile) {
-      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
+      throw ApiException.notFound(ApiErrorCodes.PARENT_PROFILE_NOT_FOUND, { parentProfileId })
     }
 
     return profile.userId

@@ -23,14 +23,12 @@ export class ParentsServices {
       .where('user.phone = :phone', { phone })
       .getOne()
 
-    // ✅ 1. User مش موجود
     if (!user) {
       return { status: 'not_found' }
     }
 
     const isParent = user.roles?.some((r) => r.name === UserRole.PARENT)
 
-    // ✅ 2. User موجود بس مش Parent
     if (!isParent || !user.parentProfile) {
       return {
         status: 'not_parent',
@@ -42,7 +40,6 @@ export class ParentsServices {
       }
     }
 
-    // ✅ 3. Parent موجود
     const { parentProfile, ...parentInfo } = user
 
     const children = [

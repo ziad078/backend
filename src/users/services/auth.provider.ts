@@ -15,7 +15,11 @@ import { BeneficiariesSignupDto } from '../dto/beneficiaries/beneficiaries-signu
 import { EnrichersSignupDto } from '../dto/enrichers/enrichers-signup.dto'
 import { UsersService } from './users.service'
 import { Enricher } from '../entities/enricher.entity'
-import { ParentProfile } from 'src/users/entities/parent-profile.entity'
+import { ParentProfilesService } from './parent-profiles.service'
+import {
+  NotificationTemplateKeys,
+  NotificationTypes,
+} from 'src/common/constants/notification-template-keys'
 import { Organization } from 'src/organizations/entities/organization.entity'
 import { NotificationsService } from 'src/notifications/notifications.service'
 import { NotificationDelivery } from 'src/notifications/enums/notification-delivery.enum'
@@ -39,6 +43,7 @@ export class AuthProvider {
     private readonly strategyFactory: SignupStrategyFactory,
     private readonly notificationsService: NotificationsService,
     private readonly events: EventEmitter2,
+    private readonly parentProfilesService: ParentProfilesService,
   ) {}
 
   generateVerificationToken(userId: string) {
@@ -227,24 +232,37 @@ export class AuthProvider {
         manager,
       )
 
-      let parentProfile = await manager.findOne(ParentProfile, {
-        where: { userId: user.id },
-      })
-
-      if (!parentProfile) {
-        parentProfile = manager.create(ParentProfile, { userId: user.id })
-        await manager.save(parentProfile)
-      }
+      const parentProfile = await this.parentProfilesService.ensureParentProfileForUser(
+        user.id,
+        manager,
+      )
 
       await this.notificationsService.enqueue({
         userId: user.id,
-        title: 'Welcome 🎉',
-        message: `Welcome ${user.name}, we're happy to have you معنا!`,
+        title: NotificationTemplateKeys.PARENT_WELCOME_TITLE,
+        message: NotificationTemplateKeys.PARENT_WELCOME_MESSAGE,
+        type: NotificationTypes.ACCOUNT_WELCOME,
         delivery: NotificationDelivery.BOTH,
         email: user.email,
+        metadata: { name: user.name },
       })
 
-      return { user, parentProfile }
+      await this.notificationsService.enqueue({
+        delivery: NotificationDelivery.VERIFY_EMAIL,
+        userId: user.id,
+        email: user.email,
+        title: '',
+        message: '',
+      })
+
+      return {
+        user,
+        parentProfile: {
+          id: parentProfile.id,
+          userId: parentProfile.userId,
+          maxChildren: parentProfile.maxChildren,
+        },
+      }
     })
   }
 }

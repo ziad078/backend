@@ -3,6 +3,7 @@ import { ParentsServices } from '../services/parents.service'
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger'
 import { UserRole } from 'src/common/enums/role.enum'
 import { Roles } from '../decorators/role.decorator'
+import { SearchParentByPhoneDto } from '../dto/search-parent-by-phone.dto'
 
 @ApiTags('parents')
 @ApiBearerAuth()
@@ -14,7 +15,7 @@ export class ParentsController {
   @ApiResponse({ status: 200, description: 'Parent found successfully' })
   @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
   @Get('search')
-  findParentByPhone(@Query('phone') phone: string) {
-    return this.parentsServices.findParentByPhone(phone)
+  findParentByPhone(@Query() query: SearchParentByPhoneDto) {
+    return this.parentsServices.findParentByPhone(query.phone)
   }
 }

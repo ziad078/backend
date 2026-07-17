@@ -19,6 +19,14 @@ export class ParentChildrenController {
   constructor(private readonly childrenService: ChildrenService) {}
 
   @Roles(UserRole.PARENT)
+  @Get('profile')
+  @ApiOperation({ summary: 'Get the current parent profile summary' })
+  getProfile(@Req() req: AuthRequest) {
+    const user = req.user as unknown as JwtRequestUser
+    return this.childrenService.getParentProfileSummary(user.userId)
+  }
+
+  @Roles(UserRole.PARENT)
   @Post('children')
   @ApiOperation({ summary: 'Add a private (non-institutional) child' })
   create(@Body() dto: CreateChildByParentDto, @Req() req: AuthRequest) {
