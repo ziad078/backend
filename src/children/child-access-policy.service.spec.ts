@@ -1,8 +1,9 @@
-import { ForbiddenException } from '@nestjs/common'
+import { HttpStatus } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import { getRepositoryToken } from '@nestjs/typeorm'
 import { UserRole } from 'src/common/enums/role.enum'
 import { OrganizationsService } from 'src/organizations/organizations.service'
+import { ApiException } from 'src/common/exceptions/api.exception'
 import { ChildAccessPolicy } from './services/child-access-policy.service'
 import { OrganizationChild } from './entities/organization-child.entity'
 import { PrivateChild } from './entities/private-child.entity'
@@ -14,6 +15,7 @@ describe('ChildAccessPolicy', () => {
 
   const orgChild = {
     id: 'org-child-1',
+    organizationId: 'org-1',
     parent: { userId: 'parent-1' },
     organization: { ownerId: 'owner-1' },
     class: null,
@@ -62,7 +64,14 @@ describe('ChildAccessPolicy', () => {
         userId: 'parent-2',
         roles: [{ name: UserRole.PARENT }],
       } as any),
-    ).rejects.toBeInstanceOf(ForbiddenException)
+    ).rejects.toBeInstanceOf(ApiException)
+
+    await expect(
+      policy.assertCanReadChild('org-child-1', {
+        userId: 'parent-2',
+        roles: [{ name: UserRole.PARENT }],
+      } as any),
+    ).rejects.toMatchObject({ status: HttpStatus.FORBIDDEN })
   })
 
   it('allows organization owner to read child in own organization', async () => {

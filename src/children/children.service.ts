@@ -357,15 +357,36 @@ export class ChildrenService {
   async findAll(query?: PaginationQueryDto) {
     const page = query?.page ?? 1
     const limit = query?.limit ?? 20
+    const skip = (page - 1) * limit
 
-    const [orgChildren, orgCount] = await this.organizationChildrenRepository.findAndCount({
-      skip: (page - 1) * limit,
-      take: limit,
-    })
-    const [privateChildren, privateCount] = await this.privateChildrenRepository.findAndCount({
-      skip: (page - 1) * limit,
-      take: limit,
-    })
+    const [orgCount, privateCount] = await Promise.all([
+      this.organizationChildrenRepository.count(),
+      this.privateChildrenRepository.count(),
+    ])
+
+    // Paginate across the concatenation [org..., private...] so each page
+    // returns at most `limit` items with stable global offsets.
+    const orgTake = Math.max(0, Math.min(limit, orgCount - skip))
+    const orgChildren =
+      orgTake > 0
+        ? await this.organizationChildrenRepository.find({
+            order: { createdAt: 'DESC' },
+            skip,
+            take: orgTake,
+          })
+        : []
+
+    const privateSkip = Math.max(0, skip - orgCount)
+    const privateTake = limit - orgChildren.length
+    const privateChildren =
+      privateTake > 0
+        ? await this.privateChildrenRepository.find({
+            order: { createdAt: 'DESC' },
+            skip: privateSkip,
+            take: privateTake,
+          })
+        : []
+
     return {
       data: [...orgChildren, ...privateChildren],
       meta: buildPaginationMeta(page, limit, orgCount + privateCount),
@@ -387,7 +408,7 @@ export class ChildrenService {
     return {
       children: children.map((child) => ({
         ...child,
-        gradeName: child.class?.grade.name,
+        gradeName: child.class?.grade?.name,
         className: child.class?.name,
       })),
     }
@@ -398,17 +419,36 @@ export class ChildrenService {
 
     const page = query?.page ?? 1
     const limit = query?.limit ?? 20
+    const skip = (page - 1) * limit
 
-    const [orgChildren, orgCount] = await this.organizationChildrenRepository.findAndCount({
-      where: { createdBy: { id: userId } },
-      skip: (page - 1) * limit,
-      take: limit,
-    })
-    const [privateChildren, privateCount] = await this.privateChildrenRepository.findAndCount({
-      where: { createdBy: { id: userId } },
-      skip: (page - 1) * limit,
-      take: limit,
-    })
+    const [orgCount, privateCount] = await Promise.all([
+      this.organizationChildrenRepository.count({ where: { createdBy: { id: userId } } }),
+      this.privateChildrenRepository.count({ where: { createdBy: { id: userId } } }),
+    ])
+
+    const orgTake = Math.max(0, Math.min(limit, orgCount - skip))
+    const orgChildren =
+      orgTake > 0
+        ? await this.organizationChildrenRepository.find({
+            where: { createdBy: { id: userId } },
+            order: { createdAt: 'DESC' },
+            skip,
+            take: orgTake,
+          })
+        : []
+
+    const privateSkip = Math.max(0, skip - orgCount)
+    const privateTake = limit - orgChildren.length
+    const privateChildren =
+      privateTake > 0
+        ? await this.privateChildrenRepository.find({
+            where: { createdBy: { id: userId } },
+            order: { createdAt: 'DESC' },
+            skip: privateSkip,
+            take: privateTake,
+          })
+        : []
+
     return {
       data: [...orgChildren, ...privateChildren],
       meta: buildPaginationMeta(page, limit, orgCount + privateCount),
@@ -442,17 +482,34 @@ export class ChildrenService {
   async update(id: string, updateChildDto: UpdateChildDto, actor: JwtRequestUser) {
     const child = await this.childAccessPolicy.assertCanModifyChild(id, actor)
 
+    // Only the child's own mutable fields are persisted; parent contact
+    // fields present on the DTO are not columns on the child entities.
+    const { name, birthDate, gender, classId } = updateChildDto
+
     if (child instanceof OrganizationChild) {
+      // Prevent moving a child into a class that belongs to another organization.
+      if (classId && classId !== child.classId) {
+        const targetClass = await this.clsService.findOneOrFail(classId)
+        if (targetClass.organization.id !== child.organizationId) {
+          throw ApiException.forbidden(ApiErrorCodes.CHILD_ACCESS_DENIED)
+        }
+      }
+
       const updated = await this.organizationChildrenRepository.save({
         ...child,
-        ...updateChildDto,
+        ...(name !== undefined ? { name } : {}),
+        ...(birthDate !== undefined ? { birthDate } : {}),
+        ...(gender !== undefined ? { gender } : {}),
+        ...(classId !== undefined ? { classId } : {}),
       })
       return updated
     }
 
     const updated = await this.privateChildrenRepository.save({
       ...child,
-      ...updateChildDto,
+      ...(name !== undefined ? { name } : {}),
+      ...(birthDate !== undefined ? { birthDate } : {}),
+      ...(gender !== undefined ? { gender } : {}),
     })
     return updated
   }
