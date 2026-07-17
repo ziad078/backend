@@ -11,6 +11,7 @@ import {
   type RawBodyRequest,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags, ApiQuery } from '@nestjs/swagger'
+import { SkipThrottle } from '@nestjs/throttler'
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import type { Request } from 'express'
@@ -50,6 +51,7 @@ export class PaymentsController {
 
   @Post('webhook/paymob')
   @Public()
+  @SkipThrottle()
   @ApiOperation({
     summary: 'Paymob transaction webhook (HMAC-validated, idempotent, queued)',
   })

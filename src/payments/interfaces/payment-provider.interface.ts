@@ -36,6 +36,10 @@ export type ParsedPaymentWebhook = {
   providerPaymentId: string
   merchantReference: string | null
   status: 'paid' | 'failed' | 'pending'
+  /** Paid amount in minor units (cents), when the provider reports it. */
+  amountCents?: number | null
+  /** ISO currency code reported by the provider, when available. */
+  currency?: string | null
 }
 
 /**

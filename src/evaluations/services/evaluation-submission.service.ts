@@ -54,6 +54,15 @@ export class EvaluationSubmissionService {
       const answerRepo = manager.getRepository(EvaluationAnswer)
       const evalRepo = manager.getRepository(Evaluation)
 
+      // Acquire the row lock without joins first — Postgres rejects FOR UPDATE
+      // on the nullable side of an outer join (privateChild/organizationChild).
+      const lockedRow = await attemptRepo.findOne({
+        where: { id: attemptId },
+        lock: { mode: 'pessimistic_write' },
+      })
+
+      if (!lockedRow) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
+
       const attempt = await attemptRepo.findOne({
         where: { id: attemptId },
         relations: {
@@ -66,7 +75,6 @@ export class EvaluationSubmissionService {
           privateChild: true,
           parent: true,
         },
-        lock: { mode: 'pessimistic_write' },
       })
 
       if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
@@ -107,12 +115,13 @@ export class EvaluationSubmissionService {
       const totalScore =
         'totalScore' in result && typeof result.totalScore === 'number' ? result.totalScore : null
 
-      attempt.status = EvaluationAttemptStatus.SUBMITTED
+      // Manual submit auto-approves so the parent sees results instantly.
+      // The admin approval endpoint remains available as a manual override.
+      attempt.status = EvaluationAttemptStatus.APPROVED
       attempt.submittedAt = now
       attempt.score = totalScore
       attempt.result = result
 
-      attempt.status = EvaluationAttemptStatus.APPROVED
       await attemptRepo.save(attempt)
       const childId = getChildId(attempt)
       if (childId) {
@@ -143,10 +152,27 @@ export class EvaluationSubmissionService {
     })
 
     if (eventPayload) {
-      this.events.emit(EVALUATION_EVENTS.submitted, eventPayload)
+      this.emitAutoApproved(eventPayload)
     }
 
     return submitted
+  }
+
+  /**
+   * Manual and auto submit both auto-approve the attempt, so we emit the
+   * `approved` event to trigger the "Results are ready!" notification rather
+   * than a misleading "submitted, awaiting approval" message.
+   */
+  private emitAutoApproved(payload: EvaluationSubmittedPayload) {
+    this.events.emit(EVALUATION_EVENTS.approved, {
+      attemptId: payload.attemptId,
+      evaluationId: payload.evaluationId,
+      parentId: payload.parentId,
+      childId: payload.childId,
+      approvedBy: 'system',
+      approvedAt: new Date(),
+      autoApproved: true,
+    })
   }
 
   async maybeAutoSubmitIfExpired(attemptId: string) {
@@ -157,18 +183,10 @@ export class EvaluationSubmissionService {
       const answerRepo = manager.getRepository(EvaluationAnswer)
       const evalRepo = manager.getRepository(Evaluation)
 
+      // Lock the row without joins — FOR UPDATE cannot be applied to the
+      // nullable side of an outer join, so we avoid loading relations here.
       const attempt = await attemptRepo.findOne({
         where: { id: attemptId },
-        relations: {
-          organizationChild: {
-            class: {
-              organization: { owner: true },
-              teacher: { user: true },
-            },
-          },
-          privateChild: true,
-          parent: true,
-        },
         lock: { mode: 'pessimistic_write' },
       })
 
@@ -202,13 +220,16 @@ export class EvaluationSubmissionService {
       const totalScore =
         'totalScore' in result && typeof result.totalScore === 'number' ? result.totalScore : null
 
-      attempt.status = EvaluationAttemptStatus.SUBMITTED
+      // Auto-submit on expiry follows the same "instant result" contract as a
+      // manual submit: the attempt is scored and APPROVED immediately.
+      attempt.status = EvaluationAttemptStatus.APPROVED
       attempt.submittedAt = now
       attempt.score = totalScore
       attempt.result = result
 
       await attemptRepo.save(attempt)
-      const childId = getChildId(attempt)
+      // Relations aren't loaded on the locked row; use the FK columns directly.
+      const childId = attempt.privateChildId ?? attempt.organizationChildId ?? null
       if (childId) {
         await this.slots.markPrivateAttemptCompleted(manager, attempt.id, childId)
       }
@@ -225,7 +246,7 @@ export class EvaluationSubmissionService {
     })
 
     if (eventPayload) {
-      this.events.emit(EVALUATION_EVENTS.submitted, eventPayload)
+      this.emitAutoApproved(eventPayload)
     }
   }
 }

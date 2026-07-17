@@ -47,7 +47,9 @@ export class EvaluationAttemptLifecycleService {
       throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
-    const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
+    // Staff roles (teacher / org owner / admin) may not have a parent profile;
+    // use the non-throwing lookup so we can fall back to org-child staff access.
+    const parentProfile = await this.parentProfilesService.findByUserIdOrNull(actor.userId)
 
     let child: OrganizationChild | PrivateChild
     let isPrivateChild: boolean
@@ -150,22 +152,14 @@ export class EvaluationAttemptLifecycleService {
       }
 
       const count = attempts.length
-      const last = attempts[0]
-
-      if (last?.status === EvaluationAttemptStatus.APPROVED) {
-        limitReachedPayload = {
-          evaluationId,
-          parentId: attemptParentProfile.id,
-          childId: dto.childId,
-          attempts: count,
-          reason: 'already_approved',
-        }
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_MAX_ATTEMPTS)
-      }
 
       let entitlementId: string | null = null
 
       if (isPrivateChild) {
+        // Private children: slot entitlements govern the full lifecycle — the
+        // 2 free attempts (MAIN + RETAKE) and any paid EXTRA attempts. A READY,
+        // unconsumed slot must exist; the slot system already enforces the
+        // "2 free, then request -> pay -> unlock" policy.
         const entitlement = await this.slots.findEntitlementForNext(
           manager,
           dto.childId,
@@ -178,6 +172,7 @@ export class EvaluationAttemptLifecycleService {
 
         entitlementId = entitlement.id
       } else if (count >= 2) {
+        // Organization children: exactly 2 free attempts per evaluation.
         limitReachedPayload = {
           evaluationId,
           parentId: attemptParentProfile.id,

@@ -96,6 +96,18 @@ export class ParentProfilesService {
   }
 
   /**
+   * Like findByUserId but returns null instead of throwing when the user has
+   * no parent profile. Used by flows that also serve non-parent roles
+   * (teacher / organization owner / admin) where a missing profile is expected.
+   */
+  async findByUserIdOrNull(userId: string): Promise<ParentProfile | null> {
+    return this.parentProfileRepository.findOne({
+      where: { userId },
+      relations: ['user', 'organizationLinks', 'organizationChildren', 'privateChildren'],
+    })
+  }
+
+  /**
    * Find parent profile by ID.
    */
   async findById(parentProfileId: string): Promise<ParentProfile | null> {

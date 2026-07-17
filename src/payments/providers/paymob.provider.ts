@@ -30,7 +30,13 @@ export class PaymobProvider implements PaymentProvider {
   constructor(private readonly config: ConfigService) {}
 
   private get apiBase(): string {
-    return this.config.get<string>('PAYMOB_API_BASE')?.replace(/\/$/, '') ?? 'https://accept.paymob.com'
+    // This platform charges in SAR, so the Saudi Arabia regional endpoint is the
+    // correct default. Paymob endpoints are region-specific — using the Egypt
+    // base (accept.paymob.com) with KSA keys makes the Intention API reject the
+    // request. Override via PAYMOB_API_BASE for other regions.
+    return (
+      this.config.get<string>('PAYMOB_API_BASE')?.replace(/\/$/, '') ?? 'https://ksa.paymob.com'
+    )
   }
 
   private get secretKey(): string | undefined {
@@ -50,6 +56,18 @@ export class PaymobProvider implements PaymentProvider {
     if (!raw?.trim()) return undefined
     const parsed = Number(raw)
     return Number.isFinite(parsed) ? parsed : undefined
+  }
+
+  /**
+   * Mock checkout/verification is a development convenience only. In production
+   * a missing key must fail closed — otherwise a config mistake would silently
+   * mark every checkout as paid and hand out entitlements for free.
+   */
+  private get allowMock(): boolean {
+    if (process.env.NODE_ENV === 'production') {
+      return this.config.get<string>('PAYMENT_ALLOW_MOCK') === 'true'
+    }
+    return true
   }
 
   private get notificationUrl(): string {
@@ -112,10 +130,22 @@ export class PaymobProvider implements PaymentProvider {
       status = 'paid'
     }
 
+    const rawAmount = obj.amount_cents
+    const amountCents =
+      rawAmount !== undefined && rawAmount !== null && Number.isFinite(Number(rawAmount))
+        ? Math.round(Number(rawAmount))
+        : null
+    const currency =
+      typeof obj.currency === 'string' && obj.currency.trim().length > 0
+        ? obj.currency.trim().toUpperCase()
+        : null
+
     return {
       providerPaymentId,
       merchantReference,
       status,
+      amountCents,
+      currency,
     }
   }
 
@@ -130,6 +160,12 @@ export class PaymobProvider implements PaymentProvider {
     const integrationId = this.integrationId
 
     if (!secretKey || !publicKey) {
+      if (!this.allowMock) {
+        this.logger.error(
+          'PAYMOB_SECRET_KEY or PAYMOB_PUBLIC_KEY missing in production — refusing to create a mock checkout',
+        )
+        throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE)
+      }
       const providerId = `mock_pi_${randomUUID()}`
       this.logger.warn('PAYMOB_SECRET_KEY or PAYMOB_PUBLIC_KEY missing — mock checkout (dev only)')
       const mockBase =
@@ -148,6 +184,13 @@ export class PaymobProvider implements PaymentProvider {
     }
 
     const paymentMethods = integrationId ? [integrationId] : undefined
+    if (!paymentMethods?.length) {
+      // Paymob's Intention API requires at least one payment method (an
+      // integration id). Without it the request is rejected with a 400.
+      this.logger.error(
+        'PAYMOB_INTEGRATION_ID is not configured — the Paymob intention will be rejected. Set it to your card/wallet integration id.',
+      )
+    }
 
     const payload: Record<string, unknown> = {
       amount: amountCents,
@@ -175,6 +218,7 @@ export class PaymobProvider implements PaymentProvider {
       payload.payment_methods = paymentMethods
     }
 
+    this.logger.log(`Creating Paymob intention at ${this.apiBase}/v1/intention/`)
     const res = await fetch(`${this.apiBase}/v1/intention/`, {
       method: 'POST',
       headers: {
@@ -187,8 +231,17 @@ export class PaymobProvider implements PaymentProvider {
     const json = (await res.json().catch(() => null)) as PaymobIntentionResponse | null
 
     if (!res.ok) {
-      this.logger.error(`Paymob intention create failed: HTTP ${res.status} ${JSON.stringify(json)}`)
-      throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE)
+      const detail = JSON.stringify(json)
+      this.logger.error(`Paymob intention create failed: HTTP ${res.status} ${detail}`)
+      throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE, {
+        providerStatus: res.status,
+        providerMessage:
+          json && typeof json === 'object'
+            ? ((json as Record<string, unknown>).detail ??
+              (json as Record<string, unknown>).message ??
+              detail)
+            : detail,
+      })
     }
 
     const intentionId = json?.id !== undefined ? String(json.id) : ''
@@ -209,11 +262,24 @@ export class PaymobProvider implements PaymentProvider {
 
   async verifyPayment(providerPaymentId: string): Promise<PaymentVerificationResult> {
     if (providerPaymentId.startsWith('mock_pi_')) {
+      if (!this.allowMock) {
+        this.logger.error(
+          `Mock provider id ${providerPaymentId} seen in production — refusing to confirm as paid`,
+        )
+        throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE)
+      }
       return { status: 'paid' }
     }
 
     const secretKey = this.secretKey
     if (!secretKey) {
+      if (!this.allowMock) {
+        // Fail closed: never grant an entitlement we could not verify.
+        this.logger.error(
+          'PAYMOB_SECRET_KEY missing during verify in production — cannot confirm payment',
+        )
+        throw ApiException.serviceUnavailable(ApiErrorCodes.PAYMENT_PROVIDER_UNAVAILABLE)
+      }
       this.logger.warn('PAYMOB_SECRET_KEY missing during verify — assuming paid (mock behaviour)')
       return { status: 'paid' }
     }

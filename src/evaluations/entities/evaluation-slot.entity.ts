@@ -84,6 +84,17 @@ export class EvaluationSlot {
   @Column({ default: false })
   requiresApproval: boolean
 
+  // Total attempts granted by this entitlement (>= 1). For paid EXTRA requests
+  // this is the number the parent requested/paid for.
+  @Column({ type: 'int', default: 1 })
+  quantity: number
+
+  // How many of `quantity` were already consumed before this slot. As each use
+  // completes, a fresh READY slot is spawned carrying the incremented count,
+  // keeping the "one active slot per kind" invariant while granting N attempts.
+  @Column({ type: 'int', default: 0 })
+  usedCount: number
+
   @Column({ type: 'uuid', nullable: true })
   evaluationAttemptId: string | null
 

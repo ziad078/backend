@@ -61,8 +61,21 @@ export class EvaluationSeedingService implements OnModuleInit {
     await this.seedEvaluations()
   }
 
+  /**
+   * Destructive seeding (deleting & re-creating question banks, overwriting
+   * evaluation metadata) is restricted to development. In production/staging
+   * seeding is strictly additive: it only inserts missing system evaluations
+   * and their initial question banks, and never overwrites admin-modified data.
+   */
+  private isDestructiveSeedingEnabled(): boolean {
+    return (
+      process.env.NODE_ENV === 'development' || process.env.RUN_DESTRUCTIVE_SEEDING === 'true'
+    )
+  }
+
   private async seedEvaluations() {
-    this.logger.log('Starting evaluation seeding...')
+    const mode = this.isDestructiveSeedingEnabled() ? 'destructive (dev)' : 'non-destructive'
+    this.logger.log(`Starting evaluation seeding (${mode})...`)
     await this.seedEvaluation(this.multipleIntelligencesSeed())
     await this.seedEvaluation(this.prideSeed())
     await this.seedEvaluation(this.renzulliSeed())
@@ -78,6 +91,8 @@ export class EvaluationSeedingService implements OnModuleInit {
       where: { type: seed.type },
     })
 
+    const destructiveSeeding = this.isDestructiveSeedingEnabled()
+
     if (!evaluation) {
       evaluation = await this.evaluationRepo.save(
         this.evaluationRepo.create({
@@ -89,7 +104,8 @@ export class EvaluationSeedingService implements OnModuleInit {
           evaluatorTypes: seed.evaluatorTypes,
         }),
       )
-    } else {
+    } else if (destructiveSeeding) {
+      // Dev only: refresh metadata from seed. Never overwrite admin edits in prod.
       evaluation.title = seed.title
       evaluation.ageFrom = seed.ageFrom
       evaluation.ageTo = seed.ageTo
@@ -102,14 +118,29 @@ export class EvaluationSeedingService implements OnModuleInit {
     })
 
     if (attemptsCount > 0) {
-      this.logger.warn(
-        `${seed.title} has ${attemptsCount} attempts; metadata updated, question bank left unchanged`,
+      this.logger.log(`${seed.title} has ${attemptsCount} attempts; question bank left unchanged`)
+      return
+    }
+
+    const [existingDimensions, existingQuestions] = await Promise.all([
+      this.dimensionRepo.count({ where: { evaluationId: evaluation.id } }),
+      this.questionRepo.count({ where: { evaluationId: evaluation.id } }),
+    ])
+    const hasQuestionBank = existingDimensions > 0 || existingQuestions > 0
+
+    if (hasQuestionBank && !destructiveSeeding) {
+      // Production/staging: an existing question bank is never deleted or overwritten.
+      this.logger.log(
+        `${seed.title} already has a question bank; skipping (non-destructive mode)`,
       )
       return
     }
 
-    await this.questionRepo.delete({ evaluationId: evaluation.id })
-    await this.dimensionRepo.delete({ evaluationId: evaluation.id })
+    if (hasQuestionBank) {
+      // Destructive dev re-seed: safe to wipe and rebuild.
+      await this.questionRepo.delete({ evaluationId: evaluation.id })
+      await this.dimensionRepo.delete({ evaluationId: evaluation.id })
+    }
 
     const dimensions = new Map<string, EvaluationDimension>()
 

@@ -19,6 +19,7 @@ import { SubmitAttemptDto } from './dto/submit-attempt.dto'
 import { EvaluationAttemptStatus } from './enums/evaluation-attempt-status.enum'
 import { EvaluationSlotService } from './services/evaluation-slot.service'
 import { ListAttemptsQueryDto } from './dto/list-attempts-query.dto'
+import { RequestExtraAttemptDto } from './dto/request-extra-attempt.dto'
 
 type JwtRequestUser = {
   userId: string
@@ -76,6 +77,19 @@ export class AttemptsController {
   }
 
   @Roles(UserRole.PARENT)
+  @Get(':childId/state')
+  @ApiOperation({
+    summary: 'Get the evaluation entitlement state for a private child',
+  })
+  getChildState(
+    @Param('childId', new ParseUUIDPipe()) childId: string,
+    @Req() req: AuthRequest,
+  ) {
+    const user = req.user as unknown as JwtRequestUser
+    return this.slots.getChildEvaluationState(childId, user.userId)
+  }
+
+  @Roles(UserRole.PARENT)
   @Post(':childId/start')
   @ApiOperation({
     summary: 'Open the main free evaluation slot for a private child',
@@ -104,14 +118,15 @@ export class AttemptsController {
   @Roles(UserRole.PARENT)
   @Post(':childId/request-extra')
   @ApiOperation({
-    summary: 'Request a paid extra evaluation attempt',
+    summary: 'Request one or more paid extra evaluation attempts',
   })
   requestPrivateExtra(
     @Param('childId', new ParseUUIDPipe()) childId: string,
+    @Body() dto: RequestExtraAttemptDto,
     @Req() req: AuthRequest,
   ) {
     const user = req.user as unknown as JwtRequestUser
-    return this.slots.requestExtraAttempt(childId, user.userId)
+    return this.slots.requestExtraAttempt(childId, user.userId, dto.quantity ?? 1)
   }
 
   @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)

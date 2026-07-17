@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator'
+import { IsEnum, IsOptional, IsUUID } from 'class-validator'
 import { ApiPropertyOptional } from '@nestjs/swagger'
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto'
 import { EvaluationAttemptStatus } from '../enums/evaluation-attempt-status.enum'
@@ -9,13 +9,13 @@ export class ListAttemptsQueryDto extends PaginationQueryDto {
   @IsEnum(EvaluationAttemptStatus)
   status?: EvaluationAttemptStatus
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   evaluationId?: string
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ format: 'uuid' })
   @IsOptional()
-  @IsString()
+  @IsUUID()
   childId?: string
 }

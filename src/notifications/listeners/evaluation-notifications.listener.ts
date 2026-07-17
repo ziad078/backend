@@ -27,10 +27,10 @@ export class EvaluationNotificationsListener {
     await this.notifications.enqueue({
       delivery: NotificationDelivery.IN_APP,
       userId,
-      title: 'تم إرسال التقييم',
+      title: 'notifications.events.evaluationSubmitted.title',
       message: payload.autoSubmitted
-        ? 'تم إرسال التقييم تلقائيًا بعد انتهاء الوقت.'
-        : 'تم إرسال التقييم بنجاح وفي انتظار الاعتماد.',
+        ? 'notifications.events.evaluationSubmitted.messageAuto'
+        : 'notifications.events.evaluationSubmitted.messageManual',
       type: 'evaluation_submitted',
       metadata: {
         attemptId: payload.attemptId,
@@ -48,6 +48,7 @@ export class EvaluationNotificationsListener {
     childId: string
     approvedBy: string
     approvedAt: Date
+    autoApproved?: boolean
   }) {
     const userId = await this.parentProfilesService.getUserIdForParentProfile(payload.parentId)
     if (!userId) return
@@ -55,8 +56,10 @@ export class EvaluationNotificationsListener {
     await this.notifications.enqueue({
       delivery: NotificationDelivery.IN_APP,
       userId,
-      title: 'تم اعتماد نتيجة التقييم',
-      message: 'تم اعتماد نتيجة تقييم طفلك ويمكنك الآن الاطلاع على النتيجة.',
+      title: 'notifications.events.evaluationApproved.title',
+      message: payload.autoApproved
+        ? 'notifications.events.evaluationApproved.messageAuto'
+        : 'notifications.events.evaluationApproved.messageManual',
       type: 'evaluation_approved',
       metadata: {
         attemptId: payload.attemptId,
@@ -80,8 +83,8 @@ export class EvaluationNotificationsListener {
     await this.notifications.enqueue({
       delivery: NotificationDelivery.IN_APP,
       userId,
-      title: 'تم الوصول لحد المحاولات',
-      message: 'تم الوصول إلى الحد الأقصى من محاولات التقييم.',
+      title: 'notifications.events.evaluationLimitReached.title',
+      message: 'notifications.events.evaluationLimitReached.message',
       type: 'evaluation_limit_reached',
       metadata: {
         evaluationId: payload.evaluationId,

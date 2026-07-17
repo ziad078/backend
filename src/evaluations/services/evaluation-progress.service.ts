@@ -37,6 +37,15 @@ export class EvaluationProgressService {
       const attemptRepo = manager.getRepository(EvaluationAttempt)
       const answerRepo = manager.getRepository(EvaluationAnswer)
 
+      // Acquire the row lock without joins first — Postgres rejects FOR UPDATE
+      // on the nullable side of an outer join (privateChild/organizationChild).
+      const lockedRow = await attemptRepo.findOne({
+        where: { id: attemptId },
+        lock: { mode: 'pessimistic_write' },
+      })
+
+      if (!lockedRow) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)
+
       const attempt = await attemptRepo.findOne({
         where: { id: attemptId },
         relations: {
@@ -49,7 +58,6 @@ export class EvaluationProgressService {
           privateChild: true,
           parent: true,
         },
-        lock: { mode: 'pessimistic_write' },
       })
 
       if (!attempt) throw ApiException.notFound(ApiErrorCodes.EVALUATION_ATTEMPT_NOT_FOUND)

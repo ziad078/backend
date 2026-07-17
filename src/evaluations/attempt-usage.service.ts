@@ -27,10 +27,14 @@ export class AttemptUsageService {
         a.status === EvaluationAttemptStatus.APPROVED,
     )
 
+    const inProgressAttempt =
+      attempts.find((a) => a.status === EvaluationAttemptStatus.IN_PROGRESS) || null
+
     return {
       totalAttempts: completedAttempts.length,
       hasRetake: completedAttempts.length >= 2,
       lastAttempt: attempts[attempts.length - 1] || null,
+      inProgressAttempt,
     }
   }
 }

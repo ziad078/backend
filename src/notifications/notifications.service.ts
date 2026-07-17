@@ -165,7 +165,7 @@ export class NotificationsService {
 
   async unreadCount(userId: string): Promise<{ count: number }> {
     const count = await this.notifications.count({
-      where: { user: { id: userId }, isRead: false },
+      where: { userId, isRead: false },
     })
     return { count }
   }

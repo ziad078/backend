@@ -313,8 +313,23 @@ export class PaymentsService {
       return
     }
 
-    const nextStatus =
+    let nextStatus =
       verifiedStatus === 'paid' ? PaymentStatusEnum.PAID : PaymentStatusEnum.FAILED
+    let failureReason = 'provider_verification_failed'
+
+    // Defense in depth: never grant an entitlement for the wrong amount/currency.
+    // The HMAC already covers amount_cents, but a mismatch here signals a reused
+    // intention or a logic error, so we refuse to mark it paid.
+    if (nextStatus === PaymentStatusEnum.PAID) {
+      const amountCheck = this.checkWebhookAmountMatches(payment, payload.rawBody)
+      if (!amountCheck.ok) {
+        this.logger.error(
+          `Payment ${payment.id} rejected: amount/currency mismatch (${amountCheck.reason})`,
+        )
+        nextStatus = PaymentStatusEnum.FAILED
+        failureReason = 'amount_mismatch'
+      }
+    }
 
     if (payment.providerPaymentId !== payload.providerPaymentId) {
       payment.providerPaymentId = payload.providerPaymentId
@@ -347,8 +362,53 @@ export class PaymentsService {
     if (nextStatus === PaymentStatusEnum.PAID) {
       await this.enqueuePaymentSuccess(fresh.id)
     } else {
-      await this.enqueuePaymentFailure(fresh.id, 'provider_verification_failed')
+      await this.enqueuePaymentFailure(fresh.id, failureReason)
     }
+  }
+
+  /**
+   * Confirms the amount/currency reported by the provider matches what we
+   * charged. Returns ok when the provider did not report an amount (nothing to
+   * compare) — the HMAC signature already guarantees payload integrity.
+   */
+  private checkWebhookAmountMatches(
+    payment: Payment,
+    rawBody: string,
+  ): { ok: boolean; reason?: string } {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(rawBody)
+    } catch {
+      return { ok: true }
+    }
+
+    const webhook = this.provider.parseWebhookPayload(parsed)
+    if (!webhook) return { ok: true }
+
+    const expectedCents = Math.round(Number(payment.amount) * 100)
+    if (
+      webhook.amountCents != null &&
+      Number.isFinite(expectedCents) &&
+      webhook.amountCents !== expectedCents
+    ) {
+      return {
+        ok: false,
+        reason: `expected ${expectedCents} cents, provider reported ${webhook.amountCents}`,
+      }
+    }
+
+    if (
+      webhook.currency != null &&
+      payment.currency &&
+      webhook.currency !== payment.currency.toUpperCase()
+    ) {
+      return {
+        ok: false,
+        reason: `expected ${payment.currency.toUpperCase()}, provider reported ${webhook.currency}`,
+      }
+    }
+
+    return { ok: true }
   }
 
   private async enqueuePaymentSuccess(paymentId: string): Promise<void> {

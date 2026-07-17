@@ -66,12 +66,14 @@ export class EvaluationSlotService {
       }
 
       const repo = manager.getRepository(EvaluationSlot)
+      // Look up the latest MAIN slot regardless of whether it's already linked
+      // to an attempt. A CONSUMED slot (attempt in progress) must be returned
+      // as-is, otherwise re-inserting would hit the active-kind unique index.
       const existing = await repo.findOne({
         where: {
           privateChildId: childId,
           parentId: parentProfile.id,
           kind: SlotKind.MAIN,
-          evaluationAttemptId: IsNull(),
         },
         order: { createdAt: 'DESC' },
         lock: { mode: 'pessimistic_write' },
@@ -143,7 +145,9 @@ export class EvaluationSlotService {
     })
   }
 
-  async requestExtraAttempt(childId: string, parentUserId: string) {
+  async requestExtraAttempt(childId: string, parentUserId: string, quantity = 1) {
+    const requestedQuantity = Math.max(1, Math.min(Math.trunc(quantity) || 1, 10))
+
     return this.dataSource.transaction(async (manager) => {
       const parentProfile = await this.parentProfilesService.findByUserId(parentUserId)
       const child = await this.loadPrivateChildOrThrow(childId, parentProfile.id, manager)
@@ -184,12 +188,149 @@ export class EvaluationSlotService {
           status: SlotStatus.REQUESTED,
           isPaid: false,
           requiresApproval: true,
+          quantity: requestedQuantity,
+          usedCount: 0,
           evaluationAttemptId: null,
           paymentId: null,
         }),
       )
       await this.notifyExtraRequested(parentProfile.id, child.name, saved.id)
       return saved
+    })
+  }
+
+  /**
+   * Read-only snapshot of a private child's evaluation entitlement state,
+   * used to drive the state-aware parent UI (free attempts remaining,
+   * available actions, and the current paid-extra request lifecycle).
+   */
+  async getChildEvaluationState(childId: string, parentUserId: string) {
+    const parentProfile = await this.parentProfilesService.findByUserId(parentUserId)
+    await this.loadPrivateChildOrThrow(childId, parentProfile.id)
+    const usage = await this.attemptUsageService.getUsage(childId, parentProfile.id)
+
+    const FREE_ATTEMPTS_LIMIT = 2
+    const freeAttemptsRemaining = Math.max(0, FREE_ATTEMPTS_LIMIT - usage.totalAttempts)
+
+    const slots = await this.slots.find({
+      where: { privateChildId: childId, parentId: parentProfile.id },
+      order: { createdAt: 'DESC' },
+    })
+
+    const inProgress = usage.inProgressAttempt != null
+
+    const readySlot =
+      slots.find((slot) => slot.status === SlotStatus.READY && !slot.evaluationAttemptId) ?? null
+
+    // A pending (unpaid) extra request blocks new requests; already-paid READY
+    // extras don't, since the parent can simply start them.
+    const pendingExtraSlot =
+      slots.find(
+        (slot) =>
+          slot.kind === SlotKind.EXTRA &&
+          (slot.status === SlotStatus.REQUESTED || slot.status === SlotStatus.AWAITING_PAYMENT),
+      ) ?? null
+
+    // Latest non-completed extra slot drives the request stepper.
+    const extraSlot =
+      slots.find(
+        (slot) => slot.kind === SlotKind.EXTRA && slot.status !== SlotStatus.COMPLETED,
+      ) ?? null
+
+    return {
+      childId,
+      totalAttempts: usage.totalAttempts,
+      freeAttemptsLimit: FREE_ATTEMPTS_LIMIT,
+      freeAttemptsUsed: Math.min(usage.totalAttempts, FREE_ATTEMPTS_LIMIT),
+      freeAttemptsRemaining,
+      hasRetake: usage.hasRetake,
+      hasReadySlot: readySlot != null,
+      readySlotKind: readySlot ? SlotKind[readySlot.kind] : null,
+      inProgressAttemptId: usage.inProgressAttempt?.id ?? null,
+      canOpenMain: usage.totalAttempts === 0 && readySlot == null && !inProgress,
+      canRequestRetake:
+        usage.totalAttempts >= 1 && !usage.hasRetake && readySlot == null && !inProgress,
+      canRequestExtra:
+        usage.totalAttempts >= FREE_ATTEMPTS_LIMIT &&
+        usage.hasRetake &&
+        readySlot == null &&
+        pendingExtraSlot == null &&
+        !inProgress,
+      extra: extraSlot
+        ? {
+            slotId: extraSlot.id,
+            status: extraSlot.status,
+            paymentId: extraSlot.paymentId,
+            isPaid: extraSlot.isPaid,
+            quantity: extraSlot.quantity,
+            remaining: Math.max(0, extraSlot.quantity - extraSlot.usedCount),
+          }
+        : null,
+    }
+  }
+
+  /**
+   * Admin view of pending paid extra-attempt requests (awaiting approval or
+   * awaiting payment after approval).
+   */
+  async listExtraAttemptRequests() {
+    const rows = await this.slots.find({
+      where: [
+        { kind: SlotKind.EXTRA, status: SlotStatus.REQUESTED },
+        { kind: SlotKind.EXTRA, status: SlotStatus.AWAITING_PAYMENT },
+      ],
+      relations: { privateChild: true, parent: { user: true } },
+      order: { createdAt: 'DESC' },
+    })
+
+    const unitPrice = this.extraAttemptPriceSar()
+    return rows.map((row) => ({
+      id: row.id,
+      status: row.status,
+      quantity: row.quantity,
+      unitPriceSar: unitPrice,
+      amountSar: unitPrice * row.quantity,
+      childId: row.privateChildId,
+      childName: row.privateChild?.name ?? null,
+      parentId: row.parentId,
+      parentName: row.parent?.user?.name ?? null,
+      parentEmail: row.parent?.user?.email ?? null,
+      parentPhone: row.parent?.user?.phone ?? null,
+      paymentId: row.paymentId,
+      createdAt: row.createdAt,
+    }))
+  }
+
+  async adminRejectExtraAttempt(slotId: string, adminUserId: string) {
+    void adminUserId
+
+    return this.dataSource.transaction(async (manager) => {
+      const repo = manager.getRepository(EvaluationSlot)
+      const slot = await repo.findOne({
+        where: { id: slotId },
+        lock: { mode: 'pessimistic_write' },
+      })
+
+      if (!slot) throw ApiException.notFound(ApiErrorCodes.EVALUATION_SLOT_NOT_FOUND)
+      if (slot.kind !== SlotKind.EXTRA || slot.status !== SlotStatus.REQUESTED) {
+        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
+      }
+
+      const { parentId, privateChildId } = slot
+      // Removing the pending request frees the active-kind unique index so the
+      // parent can submit a fresh request later.
+      await repo.remove(slot)
+
+      let childName: string | null = null
+      if (privateChildId) {
+        const child = await manager.getRepository(PrivateChild).findOne({
+          where: { id: privateChildId },
+        })
+        childName = child?.name ?? null
+      }
+      await this.notifyExtraRejected(parentId, childName)
+
+      return { id: slotId, status: 'REJECTED' as const }
     })
   }
 
@@ -230,11 +371,15 @@ export class EvaluationSlotService {
       const parentUserId = await this.parentProfilesService.getUserIdForParentProfile(
         slotWithRelations.parentId,
       )
+      const quantity = Math.max(1, slotWithRelations.quantity)
       const checkout = await this.payments.createPaymentForPrivateExtraAttempt(parentUserId, {
         privateChildId: slotWithRelations.privateChildId!,
         privateAttemptId: slotWithRelations.id,
-        amount: this.extraAttemptPriceSar(),
-        description: 'Extra child evaluation attempt',
+        amount: this.extraAttemptPriceSar() * quantity,
+        description:
+          quantity > 1
+            ? `${quantity} extra child evaluation attempts`
+            : 'Extra child evaluation attempt',
       })
       slotWithRelations.paymentId = checkout.id
 
@@ -339,6 +484,29 @@ export class EvaluationSlotService {
 
     row.transitionTo(SlotStatus.COMPLETED)
     await repo.save(row)
+
+    // Multi-attempt (paid EXTRA) entitlements: once a use completes, spawn a
+    // fresh READY slot carrying the incremented usage count until all paid
+    // attempts are consumed. This grants N attempts while preserving the
+    // "one active slot per kind" invariant.
+    const consumed = row.usedCount + 1
+    if (row.kind === SlotKind.EXTRA && consumed < row.quantity) {
+      await repo.save(
+        repo.create({
+          privateChildId: row.privateChildId,
+          organizationChildId: row.organizationChildId,
+          parentId: row.parentId,
+          kind: SlotKind.EXTRA,
+          status: SlotStatus.READY,
+          isPaid: true,
+          requiresApproval: false,
+          quantity: row.quantity,
+          usedCount: consumed,
+          evaluationAttemptId: null,
+          paymentId: row.paymentId,
+        }),
+      )
+    }
   }
 
   @OnEvent(PAYMENT_EVENTS.SUCCESS)
@@ -374,7 +542,7 @@ export class EvaluationSlotService {
       rowWithRelations.paymentId = payload.paymentId
       await repo.save(rowWithRelations)
       unlocked = true
-      childName = row.privateChild?.name || null
+      childName = rowWithRelations.privateChild?.name || null
     })
 
     if (!unlocked) return
@@ -422,6 +590,19 @@ export class EvaluationSlotService {
       userId,
       title: 'Payment required',
       message: `Complete payment for an extra evaluation attempt for ${childName}. Pay here: ${paymentUrl} (expires ${expiresAt.toISOString()}).`,
+    })
+  }
+
+  private async notifyExtraRejected(parentId: string, childName: string | null) {
+    const userId = await this.parentProfilesService.getUserIdForParentProfile(parentId)
+    if (!userId) return
+    await this.notifications.enqueue({
+      delivery: NotificationDelivery.IN_APP,
+      userId,
+      title: 'Extra attempt request declined',
+      message: childName
+        ? `Your extra evaluation attempt request for ${childName} was declined by an administrator.`
+        : 'Your extra evaluation attempt request was declined by an administrator.',
     })
   }
 }
