@@ -46,41 +46,53 @@ export class AuthProvider {
     private readonly parentProfilesService: ParentProfilesService,
   ) {}
 
+  private static readonly EMAIL_VERIFICATION_TOKEN_TYPE = 'email_verification'
+
   generateVerificationToken(userId: string) {
     return this.jwtService.sign(
       {
         sub: userId,
-        type: 'email_verification',
+        type: AuthProvider.EMAIL_VERIFICATION_TOKEN_TYPE,
       },
       { expiresIn: '10d' },
     )
   }
 
   async verifyEmail(token: string) {
+    // Only JWT verification failures should map to "invalid token"; downstream
+    // errors (missing user, DB issues) must surface on their own so we never
+    // mask a real failure as a bad token.
+    let payload: { sub?: string; userId?: string; type?: string }
     try {
-      const payload = this.jwtService.verify<{
-        sub: string
-        userId: string
-        type: string
-      }>(token)
-      if (payload.type !== 'email_verification') {
-        throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
-      }
-
-      const userId = payload.userId ?? payload.sub
-      const user = await this.usersService.findById(userId)
-
-      if (!user) {
-        throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
-      }
-
-      user.isEmailVerified = true
-      await this.usersService.save(user)
-
-      return { message: 'Email verified successfully', ok: true }
+      payload = this.jwtService.verify(token)
     } catch {
       throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
     }
+
+    if (payload.type !== AuthProvider.EMAIL_VERIFICATION_TOKEN_TYPE) {
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
+    }
+
+    // Tokens are signed with `sub`; tolerate a legacy `userId` claim for any
+    // verification links issued before the payload was standardized.
+    const userId = payload.sub ?? payload.userId
+    if (!userId) {
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
+    }
+
+    const user = await this.usersService.findById(userId)
+    if (!user) {
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
+    }
+
+    // Idempotent: re-clicking an old link on an already-verified account
+    // should succeed quietly rather than error.
+    if (!user.isEmailVerified) {
+      user.isEmailVerified = true
+      await this.usersService.save(user)
+    }
+
+    return { message: 'Email verified successfully', ok: true }
   }
 
   async validateUser(phone: string, pass: string) {

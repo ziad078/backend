@@ -112,9 +112,11 @@ export class CapacityPaymentCompletionHandler {
 
     await this.notifications.enqueue({
       userId: parentUserId,
-      title: 'Capacity increase confirmed',
-      message: `Your payment was successful. You can now add ${requestedCapacity} more child profile(s).`,
+      title: 'notifications.events.capacityCompleted.title',
+      message: 'notifications.events.capacityCompleted.message',
+      type: 'capacity_completed',
       delivery: NotificationDelivery.IN_APP,
+      metadata: { count: requestedCapacity },
     })
 
     this.logger.log(

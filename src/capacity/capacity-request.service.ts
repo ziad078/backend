@@ -239,9 +239,11 @@ export class CapacityRequestService {
 
     await this.notificationsService.enqueue({
       userId: parentUser.id,
-      title: 'Capacity request approved — payment required',
-      message: `Your request for ${capacityRequest.requestedCapacity} additional child slot(s) was approved. Complete payment to unlock capacity.`,
+      title: 'notifications.events.capacityApproved.title',
+      message: 'notifications.events.capacityApproved.message',
+      type: 'capacity_approved',
       delivery: NotificationDelivery.IN_APP,
+      metadata: { count: capacityRequest.requestedCapacity },
     })
 
     return {
@@ -254,7 +256,12 @@ export class CapacityRequestService {
     }
   }
 
-  async reject(id: string, user: JwtRequestUser, request?: Request): Promise<CapacityRequest> {
+  async reject(
+    id: string,
+    user: JwtRequestUser,
+    reason?: string,
+    request?: Request,
+  ): Promise<CapacityRequest> {
     const capacityRequest = await this.findOne(id, user)
 
     if (!hasRole(user.roles, UserRole.ADMIN)) {
@@ -265,6 +272,7 @@ export class CapacityRequestService {
       throw ApiException.badRequest(ApiErrorCodes.CAPACITY_INVALID_STATE)
     }
 
+    const trimmedReason = reason?.trim()
     const oldValue = { ...capacityRequest }
     capacityRequest.status = CapacityRequestStatus.REJECTED
     const updatedRequest = await this.capacityRequestRepository.save(capacityRequest)
@@ -277,7 +285,7 @@ export class CapacityRequestService {
       updatedRequest.id,
       oldValue as unknown as Record<string, unknown>,
       updatedRequest as unknown as Record<string, unknown>,
-      'Admin rejected capacity request',
+      trimmedReason ? `Admin rejected capacity request: ${trimmedReason}` : 'Admin rejected capacity request',
       request,
     )
 
@@ -285,9 +293,13 @@ export class CapacityRequestService {
     if (parentUserId) {
       await this.notificationsService.enqueue({
         userId: parentUserId,
-        title: 'Capacity request rejected',
-        message: 'Your request for additional child capacity was rejected by an administrator.',
+        title: 'notifications.events.capacityRejected.title',
+        message: trimmedReason
+          ? 'notifications.events.capacityRejectedWithReason.message'
+          : 'notifications.events.capacityRejected.message',
+        type: 'capacity_rejected',
         delivery: NotificationDelivery.IN_APP,
+        metadata: trimmedReason ? { reason: trimmedReason } : undefined,
       })
     }
 
