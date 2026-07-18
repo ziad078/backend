@@ -6,6 +6,7 @@ import { OnEvent } from '@nestjs/event-emitter'
 import { InjectRepository } from '@nestjs/typeorm'
 import { DataSource, EntityManager, IsNull, Repository } from 'typeorm'
 import { PrivateChild } from 'src/children/entities/private-child.entity'
+import { OrganizationChild } from 'src/children/entities/organization-child.entity'
 import { NotificationDelivery } from 'src/notifications/enums/notification-delivery.enum'
 import { NotificationsService } from 'src/notifications/notifications.service'
 import { PaymentsService } from 'src/payments/payments.service'
@@ -24,6 +25,8 @@ export class EvaluationSlotService {
     private readonly dataSource: DataSource,
     @InjectRepository(PrivateChild)
     private readonly privateChildren: Repository<PrivateChild>,
+    @InjectRepository(OrganizationChild)
+    private readonly organizationChildren: Repository<OrganizationChild>,
     @InjectRepository(EvaluationSlot)
     private readonly slots: Repository<EvaluationSlot>,
     @Inject(forwardRef(() => PaymentsService))
@@ -53,6 +56,43 @@ export class EvaluationSlotService {
     }
 
     return child
+  }
+
+  async loadOrganizationChildOrThrow(
+    childId: string,
+    parentId: string,
+    manager?: EntityManager,
+  ): Promise<OrganizationChild> {
+    const repo = manager?.getRepository(OrganizationChild) ?? this.organizationChildren
+    const child = await repo.findOne({
+      where: { id: childId, parent: { id: parentId } },
+    })
+
+    if (!child) {
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
+    }
+
+    return child
+  }
+
+  async resolveParentChildOrThrow(childId: string, parentId: string) {
+    const privateChild = await this.privateChildren.findOne({
+      where: { id: childId, parent: { id: parentId } },
+    })
+
+    if (privateChild) {
+      return { child: privateChild, isPrivateChild: true as const }
+    }
+
+    const orgChild = await this.organizationChildren.findOne({
+      where: { id: childId, parent: { id: parentId } },
+    })
+
+    if (!orgChild) {
+      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
+    }
+
+    return { child: orgChild, isPrivateChild: false as const }
   }
 
   async startMainSlot(childId: string, parentUserId: string) {
@@ -206,6 +246,30 @@ export class EvaluationSlotService {
    */
   async getChildEvaluationState(childId: string, parentUserId: string) {
     const parentProfile = await this.parentProfilesService.findByUserId(parentUserId)
+    const resolved = await this.resolveParentChildOrThrow(childId, parentProfile.id)
+
+    if (!resolved.isPrivateChild) {
+      const usage = await this.attemptUsageService.getUsage(childId, parentProfile.id)
+      const FREE_ATTEMPTS_LIMIT = 2
+
+      return {
+        childId,
+        childType: 'organization' as const,
+        totalAttempts: usage.totalAttempts,
+        freeAttemptsLimit: FREE_ATTEMPTS_LIMIT,
+        freeAttemptsUsed: Math.min(usage.totalAttempts, FREE_ATTEMPTS_LIMIT),
+        freeAttemptsRemaining: Math.max(0, FREE_ATTEMPTS_LIMIT - usage.totalAttempts),
+        hasRetake: usage.hasRetake,
+        hasReadySlot: true,
+        readySlotKind: null,
+        inProgressAttemptId: usage.inProgressAttempt?.id ?? null,
+        canOpenMain: false,
+        canRequestRetake: false,
+        canRequestExtra: false,
+        extra: null,
+      }
+    }
+
     await this.loadPrivateChildOrThrow(childId, parentProfile.id)
     const usage = await this.attemptUsageService.getUsage(childId, parentProfile.id)
 
@@ -239,6 +303,7 @@ export class EvaluationSlotService {
 
     return {
       childId,
+      childType: 'private' as const,
       totalAttempts: usage.totalAttempts,
       freeAttemptsLimit: FREE_ATTEMPTS_LIMIT,
       freeAttemptsUsed: Math.min(usage.totalAttempts, FREE_ATTEMPTS_LIMIT),

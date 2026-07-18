@@ -81,7 +81,7 @@ export class AttemptsController {
   @Roles(UserRole.PARENT)
   @Get(':childId/state')
   @ApiOperation({
-    summary: 'Get the evaluation entitlement state for a private child',
+    summary: 'Get the evaluation entitlement state for a child (private or organization)',
   })
   getChildState(
     @Param('childId', new ParseUUIDPipe()) childId: string,

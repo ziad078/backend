@@ -143,12 +143,12 @@ export class EvaluationAttemptLifecycleService {
         lock: { mode: 'pessimistic_write' },
       })
 
-      const inProgress = attempts.some(
+      const inProgressAttempt = attempts.find(
         (attemptRow) => attemptRow.status === EvaluationAttemptStatus.IN_PROGRESS,
       )
 
-      if (inProgress) {
-        throw ApiException.badRequest(ApiErrorCodes.EVALUATION_ATTEMPT_LOCKED)
+      if (inProgressAttempt) {
+        return inProgressAttempt
       }
 
       const count = attempts.length

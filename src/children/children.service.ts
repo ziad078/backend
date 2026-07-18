@@ -268,28 +268,8 @@ export class ChildrenService {
         manager,
       )
 
-      // Check parent's total children limit
-      const privateChildRepo = manager.getRepository(PrivateChild)
+      // Organization children are unlimited and never consume private child slots.
       const orgChildRepo = manager.getRepository(OrganizationChild)
-      const privateChildCount = await privateChildRepo.count({
-        where: { parent: { id: parentProfile.id } },
-      })
-      const orgChildCount = await orgChildRepo.count({
-        where: { parent: { id: parentProfile.id } },
-      })
-      const totalChildCount = privateChildCount + orgChildCount
-
-      if (totalChildCount >= parentProfile.maxChildren) {
-        await this.notificationsService.enqueue({
-          delivery: NotificationDelivery.IN_APP,
-          userId: parentProfile.userId,
-          title: NotificationTemplateKeys.PARENT_CHILD_LIMIT_REACHED_TITLE,
-          message: NotificationTemplateKeys.PARENT_CHILD_LIMIT_REACHED_MESSAGE,
-          type: NotificationTypes.CHILD_LIMIT,
-          metadata: { max: parentProfile.maxChildren },
-        })
-        throw ApiException.forbidden(ApiErrorCodes.CHILD_LIMIT_REACHED)
-      }
 
       // Check for existing organization child by birthDate and ParentProfile
       const existingChild = await orgChildRepo.findOne({
