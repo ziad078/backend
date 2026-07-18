@@ -13,6 +13,9 @@ import { hasRole } from 'src/common/utils/has-role.util'
 import EventEmitter2 from 'eventemitter2'
 import { OrganizationEvents } from './enums/organization-events.enum'
 import { ParentProfile } from 'src/users/entities/parent-profile.entity'
+import { ListOrganizationsQueryDto } from './dto/list-organizations-query.dto'
+import { buildPaginationMeta } from 'src/common/dto/pagination-query.dto'
+import { Brackets } from 'typeorm'
 
 @Injectable()
 export class OrganizationsService {
@@ -24,19 +27,48 @@ export class OrganizationsService {
     private readonly events: EventEmitter2,
   ) {}
 
+  listForAdmin(query: ListOrganizationsQueryDto) {
+    const page = query.page ?? 1
+    const limit = query.limit ?? 20
+
+    const qb = this.organizationRepository
+      .createQueryBuilder('org')
+      .leftJoinAndSelect('org.owner', 'owner')
+      .orderBy('org.organizationName', 'ASC')
+
+    if (query.status) {
+      qb.andWhere('org.approvalStatus = :status', { status: query.status })
+    }
+
+    if (query.search?.trim()) {
+      const term = `%${query.search.trim()}%`
+      qb.andWhere(
+        new Brackets((sub) => {
+          sub
+            .where('org.organizationName ILIKE :term', { term })
+            .orWhere('owner.name ILIKE :term', { term })
+            .orWhere('owner.email ILIKE :term', { term })
+            .orWhere('CAST(org.id AS text) ILIKE :term', { term })
+        }),
+      )
+    }
+
+    return qb
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount()
+      .then(([orgs, total]) => ({
+        data: orgs.map(OrganizationResponseDto.fromEntity),
+        meta: buildPaginationMeta(page, limit, total),
+      }))
+  }
+
   findAll(status?: ApprovalStatus) {
-    const where = status ? { approvalStatus: status } : {}
-    return this.organizationRepository
-      .find({
-        where,
-        relations: ['owner'],
-        order: { organizationName: 'ASC' },
-      })
-      .then((orgs) => orgs.map(OrganizationResponseDto.fromEntity))
+    return this.listForAdmin({ status, page: 1, limit: 1000 })
   }
 
   findPending() {
-    return this.findAll(ApprovalStatus.PENDING)
+    return this.listForAdmin({ status: ApprovalStatus.PENDING, page: 1, limit: 1000 })
   }
 
   async findOne(id: string) {

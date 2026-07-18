@@ -17,6 +17,7 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { Roles } from 'src/users/decorators/role.decorator'
 import { UserRole } from 'src/common/enums/role.enum'
 import { OrganizationStatusQueryDto } from './dto/organization-status-query.dto'
+import { ListOrganizationsQueryDto } from './dto/list-organizations-query.dto'
 import { RejectOrganizationDto } from './dto/reject-organization.dto'
 import type { AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { hasRole } from 'src/common/utils/has-role.util'
@@ -40,8 +41,8 @@ export class OrganizationsController {
   @Roles(UserRole.ADMIN)
   @Get()
   @ApiOperation({ summary: 'List organizations, optionally filtered by status (admin)' })
-  findAll(@Query() query: OrganizationStatusQueryDto) {
-    return this.organizationsService.findAll(query.status)
+  findAll(@Query() query: ListOrganizationsQueryDto) {
+    return this.organizationsService.listForAdmin(query)
   }
 
   @Roles(UserRole.ORGANIZATIONOWNER)

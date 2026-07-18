@@ -55,6 +55,8 @@ export class AttemptsController {
         status: query.status,
         evaluationId: query.evaluationId,
         childId: query.childId,
+        organizationChildId: query.organizationChildId,
+        privateChildId: query.privateChildId,
       },
       query,
     )

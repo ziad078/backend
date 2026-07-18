@@ -24,6 +24,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler'
 import { CommonModule } from './common/common.module'
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor'
 import { CapacityModule } from './capacity/capacity.module'
+import { AdminLookupModule } from './admin/admin-lookup.module'
 import { ApiResponseSuccessIntercepter } from './common/interceptors/api-success-response.interceptor'
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware'
 import { buildTypeOrmOptions } from './database/typeorm-options'
@@ -83,6 +84,7 @@ import { buildTypeOrmOptions } from './database/typeorm-options'
     PaymentsModule,
     DealsModule,
     CapacityModule,
+    AdminLookupModule,
   ],
   controllers: [AppController],
   providers: [

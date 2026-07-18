@@ -412,6 +412,8 @@ export class EvaluationsService {
       status?: EvaluationAttemptStatus
       evaluationId?: string
       childId?: string
+      organizationChildId?: string
+      privateChildId?: string
     },
     query?: PaginationQueryDto,
   ) {
@@ -421,9 +423,12 @@ export class EvaluationsService {
 
     if (filters.status) where.status = filters.status
     if (filters.evaluationId) where.evaluationId = filters.evaluationId
-    if (filters.childId) {
+    if (filters.organizationChildId) {
+      where.organizationChildId = filters.organizationChildId
+    } else if (filters.childId) {
       where.organizationChildId = filters.childId
     }
+    if (filters.privateChildId) where.privateChildId = filters.privateChildId
 
     const page = query?.page ?? 1
     const limit = query?.limit ?? 20
