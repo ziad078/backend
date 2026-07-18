@@ -438,7 +438,7 @@ export class EvaluationsService {
       relations: {
         organizationChild: true,
         privateChild: true,
-        parent: true,
+        parent: { user: true },
         evaluation: true,
         approval: true,
       },
