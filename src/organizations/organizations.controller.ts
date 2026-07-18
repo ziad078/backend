@@ -12,6 +12,7 @@ import {
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { OrganizationsService } from './organizations.service'
+import { OrganizationDashboardService } from './organization-dashboard.service'
 import { UpdateOrganizationDto } from './dto/update-organization.dto'
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger'
 import { Roles } from 'src/users/decorators/role.decorator'
@@ -29,7 +30,10 @@ import { OrganizationResponseDto } from './dto/organization-response.dto'
 @ApiBearerAuth()
 @Controller('organizations')
 export class OrganizationsController {
-  constructor(private readonly organizationsService: OrganizationsService) {}
+  constructor(
+    private readonly organizationsService: OrganizationsService,
+    private readonly dashboardService: OrganizationDashboardService,
+  ) {}
 
   @Roles(UserRole.ADMIN)
   @Get('pending')
@@ -43,6 +47,13 @@ export class OrganizationsController {
   @ApiOperation({ summary: 'List organizations, optionally filtered by status (admin)' })
   findAll(@Query() query: ListOrganizationsQueryDto) {
     return this.organizationsService.listForAdmin(query)
+  }
+
+  @Roles(UserRole.ORGANIZATIONOWNER)
+  @Get('me/dashboard')
+  @ApiOperation({ summary: 'Get organization owner dashboard stats and activity' })
+  getMyDashboard(@Req() req: AuthRequest) {
+    return this.dashboardService.getDashboardForOwner(req.user.userId)
   }
 
   @Roles(UserRole.ORGANIZATIONOWNER)
