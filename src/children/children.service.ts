@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common'
+import { EventEmitter2 } from '@nestjs/event-emitter'
 import { CreateChildDto, CreateChildWithParentDto } from './dto/create-child.dto'
 import { CreateChildByParentDto } from './dto/create-child-by-parent.dto'
 import { UpdateChildDto } from './dto/update-child.dto'
@@ -21,6 +22,10 @@ import { TransferService } from './transfer.service'
 import { ChildAccessPolicy } from './services/child-access-policy.service'
 import { ParentProfilesService } from 'src/users/services/parent-profiles.service'
 import { ParentOrganizationSource } from 'src/users/enums/parent-organization-source.enum'
+import {
+  UserEvents,
+  type ParentCreatedEventPayload,
+} from 'src/users/enums/user-events.enum'
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { PaginationQueryDto, buildPaginationMeta } from 'src/common/dto/pagination-query.dto'
@@ -54,6 +59,7 @@ export class ChildrenService {
     private transferService: TransferService,
     private childAccessPolicy: ChildAccessPolicy,
     private parentProfilesService: ParentProfilesService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async isPrivateChild(id: string) {
@@ -238,7 +244,7 @@ export class ChildrenService {
     dto: CreateChildDto,
     currentUser: JwtRequestUser,
   ): Promise<CreateChildResponse> {
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const cls = await this.clsService.findOneOrFail(dto.classId)
       const currentOrganizationId = cls.organization.id
 
@@ -250,8 +256,7 @@ export class ChildrenService {
 
       await this.organizationsService.assertOrganizationApproved(currentOrganizationId)
 
-      // Get or create parent profile using ParentProfilesService
-      const parentProfile = await this.parentProfilesService.getOrCreateParentByContact(
+      const parentContact = await this.parentProfilesService.getOrCreateParentByContact(
         {
           name: dto.parentName,
           email: dto.parentEmail,
@@ -260,22 +265,19 @@ export class ChildrenService {
         manager,
       )
 
-      // Link parent to organization if not already linked
       await this.parentProfilesService.linkParentToOrganization(
-        parentProfile.id,
+        parentContact.profile.id,
         currentOrganizationId,
         ParentOrganizationSource.CHILD_REGISTRATION,
         manager,
       )
 
-      // Organization children are unlimited and never consume private child slots.
       const orgChildRepo = manager.getRepository(OrganizationChild)
 
-      // Check for existing organization child by birthDate and ParentProfile
       const existingChild = await orgChildRepo.findOne({
         where: {
           birthDate: dto.birthDate,
-          parent: { id: parentProfile.id },
+          parent: { id: parentContact.profile.id },
         },
         relations: ['organization'],
       })
@@ -285,7 +287,6 @@ export class ChildrenService {
           throw ApiException.conflict(ApiErrorCodes.CHILD_DUPLICATE)
         }
 
-        // Transfer flow: child exists in another org for same parent
         const transfer = await this.transferService.requestTransfer(
           existingChild.id,
           'organization',
@@ -296,14 +297,16 @@ export class ChildrenService {
         )
 
         return {
-          status: 'TRANSFER_REQUIRED',
-          message: 'Child already exists in another school. Transfer requested.',
-          childId: existingChild.id,
-          transferRequestId: transfer.id,
+          response: {
+            status: 'TRANSFER_REQUIRED' as const,
+            message: 'success.child.transferRequested',
+            childId: existingChild.id,
+            transferRequestId: transfer.id,
+          },
+          onboarding: null,
         }
       }
 
-      // Create new organization child
       const child = await orgChildRepo.save({
         name: dto.name,
         birthDate: dto.birthDate,
@@ -311,15 +314,36 @@ export class ChildrenService {
         classId: dto.classId,
         organizationId: currentOrganizationId,
         createdBy: { id: currentUser.userId },
-        parent: { id: parentProfile.id },
+        parent: { id: parentContact.profile.id },
       })
 
       return {
-        status: 'CREATED',
-        message: 'Child created successfully',
-        childId: child.id,
+        response: {
+          status: 'CREATED' as const,
+          message: 'success.child.created',
+          childId: child.id,
+        },
+        onboarding:
+          parentContact.accountCreated && parentContact.temporaryPassword
+            ? {
+                userId: parentContact.userId,
+                name: parentContact.name,
+                email: parentContact.email,
+                phone: dto.parentPhone,
+                temporaryPassword: parentContact.temporaryPassword,
+                organizationId: currentOrganizationId,
+                organizationName: cls.organization.organizationName,
+              }
+            : null,
       }
     })
+
+    if (result.onboarding) {
+      const payload: ParentCreatedEventPayload = result.onboarding
+      this.eventEmitter.emit(UserEvents.PARENT_CREATED, payload)
+    }
+
+    return result.response
   }
 
   async create(createChildWithParentDto: CreateChildWithParentDto, currentUser: JwtRequestUser) {

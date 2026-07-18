@@ -6,6 +6,7 @@ import { render } from '@react-email/render'
 import { VerifyEmailTemplate } from '../templates/VerifyEmailTemplate'
 import { WelcomeEmailTemplate } from '../templates/WelcomeEmailTemplate'
 import { GeneralEmailTemplate } from '../templates/GeneralEmailTemplate'
+import { CredentialsEmailTemplate } from '../templates/CredentialsEmailTemplate'
 
 @Injectable()
 export class EmailProvider {
@@ -71,6 +72,36 @@ export class EmailProvider {
     } catch (err) {
       this.logger.error(
         `Failed to send welcome email to ${email}: ${err instanceof Error ? err.message : String(err)}`,
+      )
+      throw err
+    }
+  }
+
+  async sendCredentialsEmail(
+    email: string,
+    payload: {
+      name: string
+      temporaryPassword: string
+      roleLabel: string
+    },
+  ): Promise<void> {
+    try {
+      const loginUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/login`
+      const emailHtml = await render(
+        <CredentialsEmailTemplate
+          name={payload.name}
+          email={email}
+          temporaryPassword={payload.temporaryPassword}
+          loginUrl={loginUrl}
+          roleLabel={payload.roleLabel}
+        />,
+      )
+
+      await this.mail(email, 'بيانات الدخول — منصة إثراء الذكاء', emailHtml)
+      this.logger.log(`Credentials email successfully dispatched to ${email}`)
+    } catch (err) {
+      this.logger.error(
+        `Failed to send credentials email to ${email}: ${err instanceof Error ? err.message : String(err)}`,
       )
       throw err
     }

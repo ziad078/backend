@@ -13,6 +13,15 @@ import { ParentOrganizationSource } from '../enums/parent-organization-source.en
 import { UsersService } from './users.service'
 import { randomUUID } from 'crypto'
 
+export type ParentContactResult = {
+  profile: ParentProfile
+  accountCreated: boolean
+  temporaryPassword?: string
+  email: string
+  name: string
+  userId: string
+}
+
 @Injectable()
 export class ParentProfilesService {
   constructor(
@@ -202,7 +211,7 @@ export class ParentProfilesService {
   async getOrCreateParentByContact(
     parentData: { name?: string; email?: string; phone: string },
     manager?: EntityManager,
-  ): Promise<ParentProfile> {
+  ): Promise<ParentContactResult> {
     const userRepo = manager ? manager.getRepository(User) : this.userRepository
 
     const parentEmail = parentData.email?.toLowerCase().trim()
@@ -221,6 +230,8 @@ export class ParentProfilesService {
     }
 
     let parent = uniqueParents[0]
+    let accountCreated = false
+    let temporaryPassword: string | undefined
 
     if (parent) {
       // Ensure parent has PARENT role
@@ -240,25 +251,34 @@ export class ParentProfilesService {
     } else {
       // Create new parent user
       if (!parentData.name) {
-        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED)
+        throw ApiException.badRequest(ApiErrorCodes.VALIDATION_PARENT_NAME_REQUIRED)
       }
 
       const userManager = manager ?? this.userRepository.manager
-      const parentPassword = this.createTemporaryPassword()
+      temporaryPassword = this.createTemporaryPassword()
       parent = await this.usersService.create(
         {
           name: parentData.name,
           email: parentEmail ?? this.createPlaceholderEmail(parentData.phone),
           phone: parentData.phone,
-          password: parentPassword,
+          password: temporaryPassword,
         },
         [UserRole.PARENT],
         userManager,
       )
+      accountCreated = true
     }
 
-    // Ensure ParentProfile exists
-    return this.ensureParentProfileForUser(parent.id, manager)
+    const profile = await this.ensureParentProfileForUser(parent.id, manager)
+
+    return {
+      profile,
+      accountCreated,
+      temporaryPassword,
+      email: parent.email,
+      name: parent.name,
+      userId: parent.id,
+    }
   }
 
   private createTemporaryPassword(): string {

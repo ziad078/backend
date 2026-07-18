@@ -70,6 +70,8 @@ export const CLASS_TRANSLATIONS = {
 export const TEACHER_TRANSLATIONS = {
   'TEACHER.NOT_FOUND': 'errors.teacher.notFound',
   'TEACHER.ALREADY_EXISTS': 'errors.teacher.alreadyExists',
+  'TEACHER.EMAIL_IMMUTABLE': 'errors.teacher.emailImmutable',
+  'TEACHER.PHONE_IMMUTABLE': 'errors.teacher.phoneImmutable',
 } as const
 
 // ─── Evaluations ─────────────────────────────────────────
@@ -161,6 +163,7 @@ export const VALIDATION_TRANSLATIONS = {
   'VALIDATION.INVALID_BIRTH_DATE': 'errors.validation.invalidBirthDate',
   'VALIDATION.IS_EMAIL': 'errors.validation.isEmail',
   'VALIDATION.REQUIRED': 'errors.validation.required',
+  'VALIDATION.PARENT_NAME_REQUIRED': 'errors.validation.parentNameRequired',
 } as const
 
 // ─── Generic HTTP ────────────────────────────────────────

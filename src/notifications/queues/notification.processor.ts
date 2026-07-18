@@ -31,7 +31,11 @@ export class NotificationProcessor {
   })
   async handleSend(job: Job<NotificationSendJobPayload>): Promise<void> {
     const { delivery, userId, email, title, message, type, metadata } = job.data
-    if (!title?.trim() || !message?.trim()) {
+    const requiresContent =
+      delivery !== NotificationDelivery.VERIFY_EMAIL &&
+      delivery !== NotificationDelivery.ACCOUNT_CREDENTIALS
+
+    if (requiresContent && (!title?.trim() || !message?.trim())) {
       this.logger.warn(`Job ${job.id}: missing title or message, skipping`)
       return
     }
@@ -40,6 +44,7 @@ export class NotificationProcessor {
       delivery === NotificationDelivery.EMAIL || delivery === NotificationDelivery.BOTH
 
     const sendVerificationEmail = delivery === NotificationDelivery.VERIFY_EMAIL
+    const sendCredentialsEmail = delivery === NotificationDelivery.ACCOUNT_CREDENTIALS
     const sendInApp =
       delivery === NotificationDelivery.IN_APP || delivery === NotificationDelivery.BOTH
 
@@ -57,6 +62,27 @@ export class NotificationProcessor {
       }
       const token = this.authService.generateVerificationToken(userId)
       await this.email.sendVerificationEmail(email, token)
+    }
+
+    if (sendCredentialsEmail) {
+      if (!email?.trim()) {
+        this.logger.warn(`Job ${job.id}: credentials email requested but no email address provided, skipping`)
+        return
+      }
+      const credentials = metadata as {
+        name?: string
+        temporaryPassword?: string
+        roleLabel?: string
+      }
+      if (!credentials?.temporaryPassword || !credentials?.name) {
+        this.logger.warn(`Job ${job.id}: credentials metadata incomplete, skipping`)
+        return
+      }
+      await this.email.sendCredentialsEmail(email, {
+        name: credentials.name,
+        temporaryPassword: credentials.temporaryPassword,
+        roleLabel: credentials.roleLabel ?? 'مستخدم',
+      })
     }
 
     if (sendInApp) {

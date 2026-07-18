@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { EventEmitter2 } from '@nestjs/event-emitter'
 import { UserRole } from 'src/common/enums/role.enum'
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
@@ -13,6 +14,11 @@ import { OrganizationsService } from 'src/organizations/organizations.service'
 import { ITeacherResponseDto } from '../dto/teachersDtos/teacher-response.dto'
 import { CreateTeacherDto } from '../dto/teachersDtos/create-teacher.dto'
 import { JwtRequestUser } from 'src/common/interfaces/jwt-request-user.interface'
+import {
+  UserEvents,
+  type TeacherCreatedEventPayload,
+} from '../enums/user-events.enum'
+import { randomBytes } from 'crypto'
 
 @Injectable()
 export class TeachersProvider {
@@ -21,21 +27,25 @@ export class TeachersProvider {
     private readonly usersService: UsersService,
     private readonly authService: AuthProvider,
     private readonly orgService: OrganizationsService,
+    private readonly eventEmitter: EventEmitter2,
     @InjectRepository(Teacher)
     private teacherRepo: Repository<Teacher>,
   ) {}
+
   async create(dto: CreateTeacherDto, currentUser: JwtRequestUser) {
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const isExits = await this.authService.isAlreadyExits(dto.phone, dto.email)
       if (isExits) throw ApiException.conflict(ApiErrorCodes.TEACHER_ALREADY_EXISTS)
       const organization = await this.orgService.findByOwner(currentUser.userId)
       await this.orgService.assertOrganizationApproved(organization.id)
+
+      const temporaryPassword = this.generateSecurePassword()
       const user = await this.usersService.create(
         {
           name: dto.name,
           email: dto.email,
           phone: dto.phone,
-          password: dto.password,
+          password: temporaryPassword,
         },
         [UserRole.TEACHER],
         manager,
@@ -49,11 +59,45 @@ export class TeachersProvider {
 
       await manager.save(teacher)
 
-      return { teacher }
+      return {
+        teacher,
+        organization,
+        temporaryPassword,
+      }
     })
+
+    const payload: TeacherCreatedEventPayload = {
+      userId: result.teacher.user.id,
+      teacherId: result.teacher.id,
+      name: dto.name,
+      email: dto.email,
+      phone: dto.phone,
+      temporaryPassword: result.temporaryPassword,
+      organizationId: result.organization.id,
+      organizationName: result.organization.organizationName,
+      jobTitle: dto.jobTitle,
+    }
+    this.eventEmitter.emit(UserEvents.TEACHER_CREATED, payload)
+
+    return { teacher: result.teacher }
   }
 
   async update(id: string, updateTeacherDto: UpdateTeacherDto, currentUser: JwtRequestUser) {
+    const immutableFields = updateTeacherDto as UpdateTeacherDto & {
+      email?: string
+      phone?: string
+      password?: string
+    }
+    if (immutableFields.email !== undefined) {
+      throw ApiException.badRequest(ApiErrorCodes.TEACHER_EMAIL_IMMUTABLE)
+    }
+    if (immutableFields.phone !== undefined) {
+      throw ApiException.badRequest(ApiErrorCodes.TEACHER_PHONE_IMMUTABLE)
+    }
+    if (immutableFields.password !== undefined) {
+      throw ApiException.badRequest(ApiErrorCodes.VALIDATION_FAILED)
+    }
+
     const teacher = await this.dataSource.getRepository(Teacher).findOne({
       where: { id },
       relations: ['user', 'organization'],
@@ -66,18 +110,7 @@ export class TeachersProvider {
     }
     await this.orgService.assertOrganizationApproved(teacher.organization.id)
 
-    // لو فيه organizationId جديد
-    if (updateTeacherDto.organizationId) {
-      const org = await this.dataSource
-        .getRepository(Organization)
-        .findOne({ where: { id: updateTeacherDto.organizationId } })
-      if (!org) throw ApiException.notFound(ApiErrorCodes.ORGANIZATION_NOT_FOUND)
-
-      teacher.organization = org
-    }
-
     if (updateTeacherDto.jobTitle) teacher.jobTitle = updateTeacherDto.jobTitle
-
     if (updateTeacherDto.name) teacher.user.name = updateTeacherDto.name
 
     return this.dataSource.getRepository(Teacher).save(teacher)
@@ -138,5 +171,10 @@ export class TeachersProvider {
 
     await this.teacherRepo.delete(id)
     return this.usersService.remove(teacher.user.id)
+  }
+
+  private generateSecurePassword(): string {
+    const base = randomBytes(12).toString('base64url')
+    return `Ith@${base.slice(0, 10)}9!`
   }
 }

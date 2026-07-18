@@ -13,6 +13,7 @@ import { EvaluationNotificationsListener } from './listeners/evaluation-notifica
 import { ConfigService } from '@nestjs/config'
 import { JwtModule } from '@nestjs/jwt'
 import { OrgNotificationListener } from './listeners/organization-notification.listener'
+import { AccountOnboardingNotificationListener } from './listeners/account-onboarding-notification.listener'
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { OrgNotificationListener } from './listeners/organization-notification.l
     InAppProvider,
     EvaluationNotificationsListener,
     OrgNotificationListener,
+    AccountOnboardingNotificationListener,
   ],
   exports: [NotificationsService],
 })
