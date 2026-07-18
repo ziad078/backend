@@ -18,6 +18,7 @@ export class AttemptUsageService {
         { organizationChildId: childId, parentId: parentProfileId },
         { privateChildId: childId, parentId: parentProfileId },
       ],
+      relations: { evaluation: true },
       order: { attemptNumber: 'ASC' },
     })
 
@@ -27,14 +28,22 @@ export class AttemptUsageService {
         a.status === EvaluationAttemptStatus.APPROVED,
     )
 
-    const inProgressAttempt =
-      attempts.find((a) => a.status === EvaluationAttemptStatus.IN_PROGRESS) || null
+    const inProgressAttempts = attempts.filter(
+      (a) => a.status === EvaluationAttemptStatus.IN_PROGRESS,
+    )
+
+    const inProgressAttempt = inProgressAttempts[0] || null
 
     return {
       totalAttempts: completedAttempts.length,
       hasRetake: completedAttempts.length >= 2,
       lastAttempt: attempts[attempts.length - 1] || null,
       inProgressAttempt,
+      inProgressAttempts: inProgressAttempts.map((attempt) => ({
+        id: attempt.id,
+        evaluationId: attempt.evaluationId,
+        evaluationTitle: attempt.evaluation?.title ?? null,
+      })),
     }
   }
 }

@@ -263,6 +263,7 @@ export class EvaluationSlotService {
         hasReadySlot: true,
         readySlotKind: null,
         inProgressAttemptId: usage.inProgressAttempt?.id ?? null,
+        inProgressAttempts: usage.inProgressAttempts,
         canOpenMain: false,
         canRequestRetake: false,
         canRequestExtra: false,
@@ -312,6 +313,7 @@ export class EvaluationSlotService {
       hasReadySlot: readySlot != null,
       readySlotKind: readySlot ? SlotKind[readySlot.kind] : null,
       inProgressAttemptId: usage.inProgressAttempt?.id ?? null,
+      inProgressAttempts: usage.inProgressAttempts,
       canOpenMain: usage.totalAttempts === 0 && readySlot == null && !inProgress,
       canRequestRetake:
         usage.totalAttempts >= 1 && !usage.hasRetake && readySlot == null && !inProgress,
