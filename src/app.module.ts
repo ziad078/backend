@@ -37,7 +37,7 @@ import { buildTypeOrmOptions } from './database/typeorm-options'
       {
         name: 'default',
         ttl: 60_000,
-        limit: 120,
+        limit: 1200,
       },
       {
         name: 'auth',

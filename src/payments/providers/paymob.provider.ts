@@ -218,6 +218,7 @@ export class PaymobProvider implements PaymentProvider {
       payload.payment_methods = paymentMethods
     }
 
+    console.log(payload)
     this.logger.log(`Creating Paymob intention at ${this.apiBase}/v1/intention/`)
     const res = await fetch(`${this.apiBase}/v1/intention/`, {
       method: 'POST',
@@ -227,7 +228,7 @@ export class PaymobProvider implements PaymentProvider {
       },
       body: JSON.stringify(payload),
     })
-
+ 
     const json = (await res.json().catch(() => null)) as PaymobIntentionResponse | null
 
     if (!res.ok) {
