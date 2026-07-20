@@ -14,10 +14,7 @@ import { OrganizationsService } from 'src/organizations/organizations.service'
 import { ITeacherResponseDto } from '../dto/teachersDtos/teacher-response.dto'
 import { CreateTeacherDto } from '../dto/teachersDtos/create-teacher.dto'
 import { JwtRequestUser } from 'src/common/interfaces/jwt-request-user.interface'
-import {
-  UserEvents,
-  type TeacherCreatedEventPayload,
-} from '../enums/user-events.enum'
+import { UserEvents, type TeacherCreatedEventPayload } from '../enums/user-events.enum'
 import { randomBytes } from 'crypto'
 
 @Injectable()

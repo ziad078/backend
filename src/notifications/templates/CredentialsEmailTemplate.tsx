@@ -14,6 +14,7 @@ import {
 type Props = {
   name: string
   email: string
+  phone: string
   temporaryPassword: string
   loginUrl: string
   roleLabel: string
@@ -22,6 +23,7 @@ type Props = {
 export function CredentialsEmailTemplate({
   name,
   email,
+  phone,
   temporaryPassword,
   loginUrl,
   roleLabel,
@@ -34,12 +36,15 @@ export function CredentialsEmailTemplate({
         <Container style={container}>
           <Heading style={heading}>مرحباً {name}</Heading>
           <Text style={paragraph}>
-            تم إنشاء حساب {roleLabel} لك على منصة إثراء الذكاء. استخدم بيانات الدخول التالية ثم
-            قم بتغيير كلمة المرور بعد أول تسجيل دخول.
+            تم إنشاء حساب {roleLabel} لك على منصة إثراء الذكاء. استخدم بيانات الدخول التالية ثم قم
+            بتغيير كلمة المرور بعد أول تسجيل دخول.
           </Text>
           <Section style={credentialsBox}>
             <Text style={credentialLine}>
               <strong>البريد الإلكتروني:</strong> {email}
+            </Text>
+            <Text style={credentialLine}>
+              <strong> رقم الهاتف:</strong> {phone}
             </Text>
             <Text style={credentialLine}>
               <strong>كلمة المرور المؤقتة:</strong> {temporaryPassword}
@@ -48,9 +53,7 @@ export function CredentialsEmailTemplate({
           <Link href={loginUrl} style={button}>
             تسجيل الدخول
           </Link>
-          <Text style={footer}>
-            إذا لم تكن تتوقع هذا البريد، يرجى التواصل مع إدارة مؤسستك.
-          </Text>
+          <Text style={footer}>إذا لم تكن تتوقع هذا البريد، يرجى التواصل مع إدارة مؤسستك.</Text>
         </Container>
       </Body>
     </Html>

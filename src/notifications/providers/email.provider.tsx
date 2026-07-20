@@ -79,6 +79,7 @@ export class EmailProvider {
 
   async sendCredentialsEmail(
     email: string,
+    phone: string,
     payload: {
       name: string
       temporaryPassword: string
@@ -86,11 +87,12 @@ export class EmailProvider {
     },
   ): Promise<void> {
     try {
-      const loginUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/login`
+      const loginUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/auth/login`
       const emailHtml = await render(
         <CredentialsEmailTemplate
           name={payload.name}
           email={email}
+          phone={phone}
           temporaryPassword={payload.temporaryPassword}
           loginUrl={loginUrl}
           roleLabel={payload.roleLabel}

@@ -60,6 +60,7 @@ export class ClassesService {
     })
     return classes.map((cls) => ({
       id: cls.id,
+      gradeId: cls.grade.id,
       gradeName: cls.grade.name,
       children: cls.children,
       name: cls.name,
@@ -75,9 +76,11 @@ export class ClassesService {
     if (!cls) throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND, { id })
     return {
       gradeName: cls.grade.name,
+      gradeId: cls.grade.id,
       id: cls.id,
       name: cls.name,
       children: cls.children,
+      teacherId: cls.teacher?.id,
     }
   }
 

@@ -30,7 +30,7 @@ export class NotificationProcessor {
     concurrency: Number(process.env.NOTIFICATION_QUEUE_CONCURRENCY ?? 5),
   })
   async handleSend(job: Job<NotificationSendJobPayload>): Promise<void> {
-    const { delivery, userId, email, title, message, type, metadata } = job.data
+    const { delivery, userId, phone, email, title, message, type, metadata } = job.data
     const requiresContent =
       delivery !== NotificationDelivery.VERIFY_EMAIL &&
       delivery !== NotificationDelivery.ACCOUNT_CREDENTIALS
@@ -50,14 +50,18 @@ export class NotificationProcessor {
 
     if (sendEmail) {
       if (!email?.trim()) {
-        this.logger.warn(`Job ${job.id}: email delivery requested but no email address provided, skipping`)
+        this.logger.warn(
+          `Job ${job.id}: email delivery requested but no email address provided, skipping`,
+        )
         return
       }
       await this.email.sendEmail(email, title, message)
     }
     if (sendVerificationEmail) {
       if (!email?.trim()) {
-        this.logger.warn(`Job ${job.id}: email delivery requested but no email address provided, skipping`)
+        this.logger.warn(
+          `Job ${job.id}: email delivery requested but no email address provided, skipping`,
+        )
         return
       }
       const token = this.authService.generateVerificationToken(userId)
@@ -66,7 +70,15 @@ export class NotificationProcessor {
 
     if (sendCredentialsEmail) {
       if (!email?.trim()) {
-        this.logger.warn(`Job ${job.id}: credentials email requested but no email address provided, skipping`)
+        this.logger.warn(
+          `Job ${job.id}: credentials email requested but no email address provided, skipping`,
+        )
+        return
+      }
+      if (!phone?.trim()) {
+        this.logger.warn(
+          `Job ${job.id}: credentials phone requested but no email address provided, skipping`,
+        )
         return
       }
       const credentials = metadata as {
@@ -78,7 +90,7 @@ export class NotificationProcessor {
         this.logger.warn(`Job ${job.id}: credentials metadata incomplete, skipping`)
         return
       }
-      await this.email.sendCredentialsEmail(email, {
+      await this.email.sendCredentialsEmail(email, phone, {
         name: credentials.name,
         temporaryPassword: credentials.temporaryPassword,
         roleLabel: credentials.roleLabel ?? 'مستخدم',

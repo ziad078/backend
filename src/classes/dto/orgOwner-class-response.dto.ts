@@ -3,5 +3,7 @@ import { OrganizationChild } from 'src/children/entities/organization-child.enti
 
 export interface OrgOwnerClassResponse extends BaseClassResponse {
   gradeName: string
+  gradeId: string
+  teacherId?: string
   children: Partial<OrganizationChild>[]
 }

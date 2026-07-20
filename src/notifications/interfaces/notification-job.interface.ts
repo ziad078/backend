@@ -4,6 +4,7 @@ export interface NotificationSendJobPayload {
   delivery: NotificationDelivery
   userId: string
   email?: string
+  phone?: string
   title: string
   message: string
   type?: string

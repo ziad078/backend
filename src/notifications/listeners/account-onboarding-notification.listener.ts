@@ -18,7 +18,9 @@ export class AccountOnboardingNotificationListener {
   @OnEvent(UserEvents.PARENT_CREATED)
   async onParentCreated(payload: ParentCreatedEventPayload) {
     if (!this.isDeliverableEmail(payload.email)) {
-      this.logger.warn(`Skipping parent credentials email for placeholder address: ${payload.email}`)
+      this.logger.warn(
+        `Skipping parent credentials email for placeholder address: ${payload.email}`,
+      )
       return
     }
 
@@ -27,6 +29,7 @@ export class AccountOnboardingNotificationListener {
         delivery: NotificationDelivery.ACCOUNT_CREDENTIALS,
         userId: payload.userId,
         email: payload.email,
+        phone: payload.phone,
         title: 'Parent account created',
         message: 'Your parent account has been created.',
         metadata: {
@@ -53,6 +56,7 @@ export class AccountOnboardingNotificationListener {
         delivery: NotificationDelivery.ACCOUNT_CREDENTIALS,
         userId: payload.userId,
         email: payload.email,
+        phone: payload.phone,
         title: 'Teacher account created',
         message: 'Your teacher account has been created.',
         metadata: {

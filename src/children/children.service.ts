@@ -1,8 +1,4 @@
-import {
-  forwardRef,
-  Inject,
-  Injectable,
-} from '@nestjs/common'
+import { forwardRef, Inject, Injectable } from '@nestjs/common'
 import { EventEmitter2 } from '@nestjs/event-emitter'
 import { CreateChildDto, CreateChildWithParentDto } from './dto/create-child.dto'
 import { CreateChildByParentDto } from './dto/create-child-by-parent.dto'
@@ -22,10 +18,7 @@ import { TransferService } from './transfer.service'
 import { ChildAccessPolicy } from './services/child-access-policy.service'
 import { ParentProfilesService } from 'src/users/services/parent-profiles.service'
 import { ParentOrganizationSource } from 'src/users/enums/parent-organization-source.enum'
-import {
-  UserEvents,
-  type ParentCreatedEventPayload,
-} from 'src/users/enums/user-events.enum'
+import { UserEvents, type ParentCreatedEventPayload } from 'src/users/enums/user-events.enum'
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import { PaginationQueryDto, buildPaginationMeta } from 'src/common/dto/pagination-query.dto'
@@ -203,7 +196,11 @@ export class ChildrenService {
   /**
    * Optional: Get organization children for a specific parent and organization.
    */
-  async findOrgChildrenForParentByOrganization(parentUserId: string, organizationId: string, query?: PaginationQueryDto) {
+  async findOrgChildrenForParentByOrganization(
+    parentUserId: string,
+    organizationId: string,
+    query?: PaginationQueryDto,
+  ) {
     const parentProfile = await this.parentProfilesService.ensureParentProfileForUser(parentUserId)
 
     const page = query?.page ?? 1
