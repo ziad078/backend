@@ -258,6 +258,7 @@ export class ChildrenService {
           name: dto.parentName,
           email: dto.parentEmail,
           phone: dto.parentPhone,
+          grantParentRole: dto.grantParentRole,
         },
         manager,
       )
@@ -403,16 +404,40 @@ export class ChildrenService {
       where: {
         organization: { id: orgId },
       },
-      relations: { class: { grade: true } },
+      relations: { class: { grade: true }, parent: true },
     })
 
+    const usageByChild = await this.attemptUsageservice.getUsageByOrganizationChildIds(
+      children.map((child) => child.id),
+    )
+
     return {
-      children: children.map((child) => ({
-        ...child,
-        gradeName: child.class?.grade?.name,
-        className: child.class?.name,
-      })),
+      children: children.map((child) => {
+        const usage = usageByChild.get(child.id)
+        return {
+          ...child,
+          gradeName: child.class?.grade?.name,
+          className: child.class?.name,
+          attemptsUsed: usage?.totalAttempts ?? 0,
+          retakeUsed: usage?.hasRetake ?? false,
+        }
+      }),
     }
+  }
+
+  async enrichOrganizationChildrenWithUsage<T extends { id: string }>(children: T[]) {
+    const usageByChild = await this.attemptUsageservice.getUsageByOrganizationChildIds(
+      children.map((child) => child.id),
+    )
+
+    return children.map((child) => {
+      const usage = usageByChild.get(child.id)
+      return {
+        ...child,
+        attemptsUsed: usage?.totalAttempts ?? 0,
+        retakeUsed: usage?.hasRetake ?? false,
+      }
+    })
   }
 
   async findByUser(userId: string, actor: JwtRequestUser, query?: PaginationQueryDto) {

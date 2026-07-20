@@ -32,6 +32,7 @@ export const USER_TRANSLATIONS = {
 // ─── Parents ─────────────────────────────────────────────
 export const PARENT_TRANSLATIONS = {
   'PARENT.PROFILE_NOT_FOUND': 'errors.parent.profileNotFound',
+  'PARENT.ROLE_CONFIRMATION_REQUIRED': 'errors.parent.roleConfirmationRequired',
 } as const
 
 // ─── Organizations ───────────────────────────────────────

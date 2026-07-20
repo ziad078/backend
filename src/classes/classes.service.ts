@@ -1,6 +1,7 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common'
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
+import { UserRole } from 'src/common/enums/role.enum'
 import { CreateClassDto } from './dto/create-class.dto'
 import { UpdateClassDto } from './dto/update-class.dto'
 import { InjectRepository } from '@nestjs/typeorm'
@@ -68,20 +69,91 @@ export class ClassesService {
     }))
   }
 
-  async findOne(id: string): Promise<OrgOwnerClassResponse> {
+  async findOne(id: string, currentUser?: JwtRequestUser): Promise<OrgOwnerClassResponse> {
     const cls = await this.classesRepo.findOne({
       where: { id },
-      relations: ['grade', 'children', 'teacher'],
+      relations: [
+        'grade',
+        'children',
+        'children.parent',
+        'teacher',
+        'teacher.user',
+        'organization',
+        'organization.owner',
+      ],
     })
     if (!cls) throw ApiException.notFound(ApiErrorCodes.CLASS_NOT_FOUND, { id })
+
+    if (currentUser) {
+      await this.assertCanViewClass(cls, currentUser)
+    }
+
+    const enrichedChildren = await this.childrenService.enrichOrganizationChildrenWithUsage(
+      cls.children,
+    )
+
     return {
       gradeName: cls.grade.name,
       gradeId: cls.grade.id,
       id: cls.id,
       name: cls.name,
-      children: cls.children,
+      children: enrichedChildren,
       teacherId: cls.teacher?.id,
+      organizationId: cls.organization?.id,
+      organizationName: cls.organization?.organizationName,
+      childrenCount: enrichedChildren.length,
     }
+  }
+
+  async findClassesByTeacher(teacherId: string, currentUser: JwtRequestUser) {
+    const teacher = await this.teacherRepo.findOne({
+      where: { id: teacherId },
+      relations: ['user', 'organization'],
+    })
+    if (!teacher) throw ApiException.notFound(ApiErrorCodes.TEACHER_NOT_FOUND)
+
+    const roles = currentUser.roles.map((r) => r.name)
+    const isSelf = teacher.user.id === currentUser.userId
+    const isAdmin = roles.includes(UserRole.ADMIN)
+    const isOrgOwner =
+      roles.includes(UserRole.ORGANIZATIONOWNER) &&
+      (await this.orgService.isOrgMember(currentUser.userId, teacher.organization.id))
+
+    if (!isSelf && !isAdmin && !isOrgOwner) {
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
+    }
+
+    const classes = await this.classesRepo.find({
+      where: { teacher: { id: teacherId } },
+      relations: {
+        grade: true,
+        children: true,
+        teacher: { user: true },
+        organization: true,
+      },
+    })
+
+    const withUsage = await Promise.all(
+      classes.map(async (cls) => {
+        const children = await this.childrenService.enrichOrganizationChildrenWithUsage(cls.children)
+        const evaluatedCount = children.filter((c) => (c.attemptsUsed ?? 0) > 0).length
+        return {
+          id: cls.id,
+          gradeName: cls.grade.name,
+          gradeId: cls.grade.id,
+          childrenCount: children.length,
+          evaluatedCount,
+          name: cls.name,
+          teacherId: cls.teacher?.id,
+          teacherName: cls.teacher?.user?.name,
+          organizationName: cls.organization?.organizationName,
+          organizationId: cls.organization?.id,
+          children,
+        }
+      }),
+    )
+
+    return { classes: withUsage }
   }
 
   async findClassesByOrg(orgId: string, currentUser: JwtRequestUser) {
@@ -187,12 +259,26 @@ export class ClassesService {
   }
 
   async getChildrenInClass(clsId: string, currentUser: JwtRequestUser) {
-    const cls = await this.findOneOrFail(clsId)
+    const full = await this.findOne(clsId, currentUser)
+    return full.children
+  }
+
+  private async assertCanViewClass(cls: Class, currentUser: JwtRequestUser) {
+    const roles = currentUser.roles.map((r) => r.name)
+    if (roles.includes(UserRole.ADMIN)) return
+
     if (!(await this.orgService.isOrgMember(currentUser.userId, cls.organization.id))) {
       throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
-    const full = await this.findOne(clsId)
-    return full.children
+
+    if (roles.includes(UserRole.ORGANIZATIONOWNER)) return
+
+    if (roles.includes(UserRole.TEACHER)) {
+      if (cls.teacher?.user?.id === currentUser.userId) return
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
+    }
+
+    throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
   }
 
   private async assertCanManageClass(cls: Class, currentUser: JwtRequestUser) {

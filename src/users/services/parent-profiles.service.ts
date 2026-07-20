@@ -209,7 +209,12 @@ export class ParentProfilesService {
    * Creates ParentProfile if missing.
    */
   async getOrCreateParentByContact(
-    parentData: { name?: string; email?: string; phone: string },
+    parentData: {
+      name?: string
+      email?: string
+      phone: string
+      grantParentRole?: boolean
+    },
     manager?: EntityManager,
   ): Promise<ParentContactResult> {
     const userRepo = manager ? manager.getRepository(User) : this.userRepository
@@ -234,8 +239,18 @@ export class ParentProfilesService {
     let temporaryPassword: string | undefined
 
     if (parent) {
-      // Ensure parent has PARENT role
-      if (!parent.roles?.some((r) => r.name === UserRole.PARENT)) {
+      const hasParentRole = parent.roles?.some((r) => r.name === UserRole.PARENT)
+
+      if (!hasParentRole) {
+        if (!parentData.grantParentRole) {
+          throw ApiException.badRequest(ApiErrorCodes.PARENT_ROLE_CONFIRMATION_REQUIRED, {
+            userId: parent.id,
+            name: parent.name,
+            phone: parent.phone,
+            email: parent.email,
+            roles: parent.roles?.map((r) => r.name) ?? [],
+          })
+        }
         parent = await this.usersService.addRolesToUser(parent.id, [UserRole.PARENT], manager)
       }
 

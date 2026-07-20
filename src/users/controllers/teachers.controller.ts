@@ -43,6 +43,16 @@ export class TeachersController {
     return this.teachersServieces.update(id, updateTeacherDto, req.user)
   }
 
+  @ApiOperation({ summary: 'Get teacher profile by user id' })
+  @Roles(UserRole.TEACHER, UserRole.ADMIN)
+  @Get('user/:userId')
+  findByUserId(
+    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Req() req: AuthRequest,
+  ) {
+    return this.teachersServieces.findByUserId(userId, req.user)
+  }
+
   @ApiOperation({ summary: 'Get all teachers for organization' })
   @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN, UserRole.TEACHER)
   @Get('organization/:organizationId')

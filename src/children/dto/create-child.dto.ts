@@ -8,6 +8,7 @@ import {
   IsEmail,
   IsPhoneNumber,
   Length,
+  IsBoolean,
 } from 'class-validator'
 import { Gender } from 'src/common/enums/gender.enum'
 import { IsValidBirthDate } from 'src/common/validators/birth-date.validator'
@@ -61,6 +62,16 @@ export class CreateChildDto {
   @Length(2, 50)
   @Transform(({ value }: { value?: string }) => value?.trim())
   parentName?: string
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Required true when the phone belongs to an existing non-parent user and the org confirms granting PARENT role',
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  grantParentRole?: boolean
 }
 
 export class CreateChildWithParentDto {

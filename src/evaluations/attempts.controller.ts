@@ -62,7 +62,7 @@ export class AttemptsController {
     )
   }
 
-  @Roles(UserRole.PARENT, UserRole.ADMIN)
+  @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
   @Get('child/:childId')
   @ApiOperation({ summary: 'Get evaluation attempts for a child' })
   getAttemptsForChild(

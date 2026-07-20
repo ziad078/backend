@@ -45,7 +45,7 @@ export class EvaluationsController {
     })
   }
 
-  @Roles(UserRole.PARENT)
+  @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
   @Get('available/:childId')
   @ApiOperation({ summary: 'Get available evaluations for a child by age' })
   getAvailableForChild(
@@ -87,7 +87,7 @@ export class EvaluationsController {
     })
   }
 
-  @Roles(UserRole.PARENT, UserRole.ADMIN)
+  @Roles(UserRole.PARENT, UserRole.TEACHER, UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
   @Get(':id/form')
   @ApiOperation({
     summary: 'Get evaluation form without exposing score values',

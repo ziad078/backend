@@ -199,7 +199,12 @@ export class EvaluationsService {
   }
 
   async getEvaluationForm(evaluationId: string, actor: EvaluationActor) {
-    this.access.assertHasRole(actor, [UserRole.PARENT, UserRole.ADMIN])
+    this.access.assertHasRole(actor, [
+      UserRole.PARENT,
+      UserRole.TEACHER,
+      UserRole.ORGANIZATIONOWNER,
+      UserRole.ADMIN,
+    ])
 
     const evaluation = await this.evalRepo.findOne({
       where: { id: evaluationId },
@@ -224,7 +229,12 @@ export class EvaluationsService {
       throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
-    if (evaluation.isArchived && actor.roles.includes(UserRole.PARENT)) {
+    if (
+      evaluation.isArchived &&
+      (actor.roles.includes(UserRole.PARENT) ||
+        actor.roles.includes(UserRole.TEACHER) ||
+        actor.roles.includes(UserRole.ORGANIZATIONOWNER))
+    ) {
       throw ApiException.notFound(ApiErrorCodes.EVALUATION_NOT_FOUND)
     }
 
@@ -261,67 +271,91 @@ export class EvaluationsService {
   }
 
   async getAvailableEvaluationsForChild(childId: string, actor: EvaluationActor) {
-    this.access.assertHasRole(actor, [UserRole.PARENT])
+    this.access.assertHasRole(actor, [
+      UserRole.PARENT,
+      UserRole.TEACHER,
+      UserRole.ORGANIZATIONOWNER,
+      UserRole.ADMIN,
+    ])
 
-    const parentProfile = await this.parentProfilesService.findByUserId(actor.userId)
-    if (!parentProfile) throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND)
+    const isParent = actor.roles.includes(UserRole.PARENT)
+    const isStaff =
+      actor.roles.includes(UserRole.TEACHER) ||
+      actor.roles.includes(UserRole.ORGANIZATIONOWNER) ||
+      actor.roles.includes(UserRole.ADMIN)
 
-    // Try to find as private child first
-    const privateChild = await this.privateChildrenRepository.findOne({
-      where: { id: childId, parent: { id: parentProfile.id } },
-      relations: { parent: true },
-    })
+    const parentProfile = isParent
+      ? await this.parentProfilesService.findByUserIdOrNull(actor.userId)
+      : null
 
-    if (privateChild) {
-      const age = this.calculateAge(privateChild.birthDate)
-      const evaluations = await this.evalRepo
-        .createQueryBuilder('evaluation')
-        .where('evaluation.isArchived = false')
-        .andWhere('(evaluation.ageFrom IS NULL OR evaluation.ageFrom <= :age)', {
-          age,
-        })
-        .andWhere('(evaluation.ageTo IS NULL OR evaluation.ageTo >= :age)', {
-          age,
-        })
-        .orderBy('evaluation.title', 'ASC')
-        .getMany()
+    if (isParent && parentProfile) {
+      const privateChild = await this.privateChildrenRepository.findOne({
+        where: { id: childId, parent: { id: parentProfile.id } },
+        relations: { parent: true },
+      })
 
-      return { childId, age, evaluations }
+      if (privateChild) {
+        const age = this.calculateAge(privateChild.birthDate)
+        const evaluations = await this.evalRepo
+          .createQueryBuilder('evaluation')
+          .where('evaluation.isArchived = false')
+          .andWhere('(evaluation.ageFrom IS NULL OR evaluation.ageFrom <= :age)', { age })
+          .andWhere('(evaluation.ageTo IS NULL OR evaluation.ageTo >= :age)', { age })
+          .orderBy('evaluation.title', 'ASC')
+          .getMany()
+
+        return { childId, age, evaluations }
+      }
+
+      const orgChild = await this.organizationChildrenRepository.findOne({
+        where: { id: childId, parent: { id: parentProfile.id } },
+        relations: { parent: true, class: { organization: true } },
+      })
+
+      if (orgChild) {
+        return this.listAvailableForOrgChild(childId, orgChild)
+      }
     }
 
-    // Try organization child
-    const orgChild = await this.organizationChildrenRepository.findOne({
-      where: { id: childId, parent: { id: parentProfile.id } },
-      relations: { parent: true, class: { organization: true } },
-    })
-
-    if (!orgChild) {
-      throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
+    if (isStaff) {
+      const orgChild = await this.organizationChildrenRepository.findOne({
+        where: { id: childId },
+        relations: {
+          parent: true,
+          class: { organization: { owner: true }, teacher: { user: true } },
+        },
+      })
+      if (!orgChild) throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
+      this.access.assertOrgChildStaffAccess(orgChild, actor)
+      return this.listAvailableForOrgChild(childId, orgChild)
     }
 
+    throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
+  }
+
+  private async listAvailableForOrgChild(
+    childId: string,
+    orgChild: {
+      birthDate: Date
+      class?: { organization?: { id: string } } | null
+    },
+  ) {
     const age = this.calculateAge(orgChild.birthDate)
 
     const qb = this.evalRepo
       .createQueryBuilder('evaluation')
       .where('evaluation.isArchived = false')
-      .andWhere('(evaluation.ageFrom IS NULL OR evaluation.ageFrom <= :age)', {
-        age,
-      })
-      .andWhere('(evaluation.ageTo IS NULL OR evaluation.ageTo >= :age)', {
-        age,
-      })
+      .andWhere('(evaluation.ageFrom IS NULL OR evaluation.ageFrom <= :age)', { age })
+      .andWhere('(evaluation.ageTo IS NULL OR evaluation.ageTo >= :age)', { age })
 
-    if (orgChild.class) {
+    if (orgChild.class?.organization?.id) {
       qb.andWhere(
         '(evaluation.institutionId = :institutionId OR evaluation.institutionId IS NULL)',
-        {
-          institutionId: orgChild.class.organization.id,
-        },
+        { institutionId: orgChild.class.organization.id },
       )
     }
 
     const evaluations = await qb.orderBy('evaluation.title', 'ASC').getMany()
-
     return { childId, age, evaluations }
   }
 
@@ -455,67 +489,82 @@ export class EvaluationsService {
   async getAttemptsForChild(childId: string, actor: EvaluationActor, query?: PaginationQueryDto) {
     const isAdmin = actor.roles.includes(UserRole.ADMIN)
     const isParent = actor.roles.includes(UserRole.PARENT)
+    const isStaff =
+      actor.roles.includes(UserRole.TEACHER) ||
+      actor.roles.includes(UserRole.ORGANIZATIONOWNER) ||
+      isAdmin
 
-    if (!isAdmin && !isParent) {
+    if (!isAdmin && !isParent && !isStaff) {
       throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
     }
 
     const parentProfile = isParent
-      ? await this.parentProfilesService.findByUserId(actor.userId)
+      ? await this.parentProfilesService.findByUserIdOrNull(actor.userId)
       : null
 
-    if (isParent && !parentProfile) throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND)
+    if (isParent && !parentProfile && !isStaff) {
+      throw ApiException.forbidden(ApiErrorCodes.USER_NOT_FOUND)
+    }
 
     const parentProfileId = isParent && parentProfile ? parentProfile.id : undefined
 
     const page = query?.page ?? 1
     const limit = query?.limit ?? 20
 
-    // Try private child first
-    const privateChild = await this.privateChildrenRepository.findOne({
-      where: isParent ? { id: childId, parent: { id: parentProfileId } } : { id: childId },
-    })
-
-    if (privateChild) {
-      const attemptWhere: any = { privateChildId: childId }
-      if (isParent) {
-        attemptWhere.parentId = parentProfileId
-      }
-
-      const [attempts, total] = await this.attemptRepo.findAndCount({
-        where: attemptWhere,
-        relations: { evaluation: true, approval: true },
-        order: { startedAt: 'DESC' },
-        skip: (page - 1) * limit,
-        take: limit,
+    if (parentProfileId) {
+      const privateChild = await this.privateChildrenRepository.findOne({
+        where: { id: childId, parent: { id: parentProfileId } },
       })
 
-      return { data: attempts, meta: buildPaginationMeta(page, limit, total) }
+      if (privateChild) {
+        const [attempts, total] = await this.attemptRepo.findAndCount({
+          where: { privateChildId: childId, parentId: parentProfileId },
+          relations: { evaluation: true, approval: true },
+          order: { startedAt: 'DESC' },
+          skip: (page - 1) * limit,
+          take: limit,
+        })
+
+        return { data: attempts, meta: buildPaginationMeta(page, limit, total) }
+      }
     }
 
-    // Try organization child
     const orgChild = await this.organizationChildrenRepository.findOne({
-      where: isParent ? { id: childId, parent: { id: parentProfileId } } : { id: childId },
+      where: { id: childId },
+      relations: {
+        class: { organization: { owner: true }, teacher: { user: true } },
+        parent: true,
+      },
     })
 
     if (!orgChild) {
       throw ApiException.notFound(ApiErrorCodes.CHILD_NOT_FOUND)
     }
 
-    const attemptWhere: any = { organizationChildId: childId }
-    if (isParent) {
-      attemptWhere.parentId = parentProfileId
+    if (isParent && parentProfileId && orgChild.parent?.id === parentProfileId) {
+      const [attempts, total] = await this.attemptRepo.findAndCount({
+        where: { organizationChildId: childId, parentId: parentProfileId },
+        relations: { evaluation: true, approval: true },
+        order: { startedAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      })
+      return { data: attempts, meta: buildPaginationMeta(page, limit, total) }
     }
 
-    const [attempts, total] = await this.attemptRepo.findAndCount({
-      where: attemptWhere,
-      relations: { evaluation: true, approval: true },
-      order: { startedAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    })
+    if (isStaff) {
+      this.access.assertOrgChildStaffAccess(orgChild, actor)
+      const [attempts, total] = await this.attemptRepo.findAndCount({
+        where: { organizationChildId: childId },
+        relations: { evaluation: true, approval: true },
+        order: { startedAt: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      })
+      return { data: attempts, meta: buildPaginationMeta(page, limit, total) }
+    }
 
-    return { data: attempts, meta: buildPaginationMeta(page, limit, total) }
+    throw ApiException.forbidden(ApiErrorCodes.CHILD_NOT_FOUND)
   }
 
   private calculateAge(birthDate: Date | string) {

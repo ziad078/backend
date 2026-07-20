@@ -12,20 +12,29 @@ export function resolveChild(entity: {
   return entity.organizationChild ?? entity.privateChild ?? null
 }
 
+/**
+ * Prefer FK columns so callers that load attempts without relations still resolve child ids.
+ * Fall back to loaded relations for legacy payloads.
+ */
 export function getChildId(entity: {
+  organizationChildId?: string | null
+  privateChildId?: string | null
   organizationChild?: OrganizationChild | null
   privateChild?: PrivateChild | null
 }): string | null {
-  const child = resolveChild(entity)
-  return child?.id ?? null
+  if (entity.organizationChildId) return entity.organizationChildId
+  if (entity.privateChildId) return entity.privateChildId
+  return resolveChild(entity)?.id ?? null
 }
 
 export function getChildType(entity: {
+  organizationChildId?: string | null
+  privateChildId?: string | null
   organizationChild?: OrganizationChild | null
   privateChild?: PrivateChild | null
 }): 'organization' | 'private' | null {
-  if (entity.organizationChild) return 'organization'
-  if (entity.privateChild) return 'private'
+  if (entity.organizationChildId || entity.organizationChild) return 'organization'
+  if (entity.privateChildId || entity.privateChild) return 'private'
   return null
 }
 

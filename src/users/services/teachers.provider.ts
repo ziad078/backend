@@ -154,6 +154,36 @@ export class TeachersProvider {
     }
   }
 
+  async findByUserId(userId: string, currentUser: JwtRequestUser): Promise<ITeacherResponseDto> {
+    const roles = currentUser.roles.map((r) => r.name)
+    const isSelf = userId === currentUser.userId
+    const isAdmin = roles.includes(UserRole.ADMIN)
+
+    if (!isSelf && !isAdmin) {
+      throw ApiException.forbidden(ApiErrorCodes.AUTH_FORBIDDEN)
+    }
+
+    const teacher = await this.teacherRepo.findOne({
+      where: { user: { id: userId } },
+      relations: ['user', 'organization', 'classes'],
+    })
+    if (!teacher) throw ApiException.notFound(ApiErrorCodes.TEACHER_NOT_FOUND)
+
+    return {
+      email: teacher.user.email,
+      phone: teacher.user.phone,
+      classes: teacher.classes.map((c) => c.name),
+      userId: teacher.user.id,
+      teacherId: teacher.id,
+      isEmailVerified: teacher.user.isEmailVerified,
+      isPhoneVerified: teacher.user.isPhoneVerified,
+      jobTitle: teacher.jobTitle,
+      name: teacher.user.name,
+      organizationId: teacher.organization.id,
+      organizationName: teacher.organization.organizationName,
+    }
+  }
+
   async remove(id: string, currentUser: JwtRequestUser) {
     const teacher = await this.teacherRepo.findOne({
       where: { id },

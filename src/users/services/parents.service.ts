@@ -36,6 +36,8 @@ export class ParentsServices {
           id: user.id,
           name: user.name,
           phone: user.phone,
+          email: user.email,
+          roles: user.roles?.map((r) => r.name) ?? [],
         },
       }
     }

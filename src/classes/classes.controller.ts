@@ -45,6 +45,16 @@ export class ClassesController {
     return this.classesService.findClassesByOrg(orgId, req.user)
   }
 
+  @ApiOperation({ summary: 'Get classes assigned to a teacher' })
+  @Roles(UserRole.TEACHER, UserRole.ORGANIZATIONOWNER, UserRole.ADMIN)
+  @Get('teacher/:teacherId')
+  findClassesByTeacher(
+    @Param('teacherId', new ParseUUIDPipe()) teacherId: string,
+    @Req() req: AuthRequest,
+  ) {
+    return this.classesService.findClassesByTeacher(teacherId, req.user)
+  }
+
   @ApiOperation({ summary: 'Get all children in class' })
   @Roles(UserRole.ORGANIZATIONOWNER, UserRole.ADMIN, UserRole.TEACHER)
   @Get(':id/get-children')
@@ -55,8 +65,8 @@ export class ClassesController {
   @ApiOperation({ summary: 'Get one class' })
   @Roles(UserRole.ADMIN, UserRole.ORGANIZATIONOWNER, UserRole.TEACHER)
   @Get(':id')
-  findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.classesService.findOne(id)
+  findOne(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: AuthRequest) {
+    return this.classesService.findOne(id, req.user)
   }
 
   @ApiOperation({ summary: 'Update a class' })

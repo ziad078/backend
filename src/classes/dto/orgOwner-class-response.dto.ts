@@ -5,5 +5,8 @@ export interface OrgOwnerClassResponse extends BaseClassResponse {
   gradeName: string
   gradeId: string
   teacherId?: string
+  organizationId?: string
+  organizationName?: string
+  childrenCount?: number
   children: Partial<OrganizationChild>[]
 }
