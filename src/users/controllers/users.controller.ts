@@ -5,6 +5,7 @@ import {
   Param,
   Delete,
   Post,
+  Patch,
   ParseUUIDPipe,
   Req,
 } from '@nestjs/common'
@@ -17,6 +18,8 @@ import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
 import type { AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { hasRole } from 'src/common/utils/has-role.util'
+import { ChangePasswordDto } from '../dto/change-password.dto'
+import { AuthProvider } from '../services/auth.provider'
 @ApiTags('users')
 @ApiBearerAuth()
 @Controller('users')
@@ -24,6 +27,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly teachersProvider: TeachersProvider,
+    private readonly authProvider: AuthProvider,
   ) {}
 
   // @Post()
@@ -58,6 +62,11 @@ export class UsersController {
   @Get('me')
   getMe(@Req() req: AuthRequest) {
     return this.usersService.findById(req.user.userId)
+  }
+
+  @Patch('me/password')
+  changePassword(@Req() req: AuthRequest, @Body() dto: ChangePasswordDto) {
+    return this.authProvider.changePassword(req.user.userId, dto.currentPassword, dto.newPassword)
   }
 
   @Get(':id')

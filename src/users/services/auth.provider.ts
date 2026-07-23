@@ -47,6 +47,7 @@ export class AuthProvider {
   ) {}
 
   private static readonly EMAIL_VERIFICATION_TOKEN_TYPE = 'email_verification'
+  private static readonly PASSWORD_RESET_TOKEN_TYPE = 'password_reset'
 
   generateVerificationToken(userId: string) {
     return this.jwtService.sign(
@@ -55,6 +56,16 @@ export class AuthProvider {
         type: AuthProvider.EMAIL_VERIFICATION_TOKEN_TYPE,
       },
       { expiresIn: '10d' },
+    )
+  }
+
+  generatePasswordResetToken(userId: string) {
+    return this.jwtService.sign(
+      {
+        sub: userId,
+        type: AuthProvider.PASSWORD_RESET_TOKEN_TYPE,
+      },
+      { expiresIn: '1h' },
     )
   }
 
@@ -93,6 +104,76 @@ export class AuthProvider {
     }
 
     return { message: 'Email verified successfully', ok: true }
+  }
+
+  async requestPasswordReset(phone: string) {
+    const user = await this.usersService.findByPhone(phone)
+
+    if (user?.email) {
+      await this.notificationsService.enqueue({
+        userId: user.id,
+        email: user.email,
+        delivery: NotificationDelivery.RESET_PASSWORD,
+        title: 'Reset password',
+        message: 'Password reset request',
+        type: 'reset-password',
+      })
+    }
+
+    return {
+      message: 'If an account exists with this phone number, a reset link has been sent to the registered email.',
+      ok: true,
+    }
+  }
+
+  async resetPassword(token: string, password: string) {
+    let payload: { sub?: string; userId?: string; type?: string }
+    try {
+      payload = this.jwtService.verify(token)
+    } catch {
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
+    }
+
+    if (payload.type !== AuthProvider.PASSWORD_RESET_TOKEN_TYPE) {
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
+    }
+
+    const userId = payload.sub ?? payload.userId
+    if (!userId) {
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_TOKEN_INVALID)
+    }
+
+    const user = await this.usersService.findById(userId)
+    if (!user) {
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
+    }
+
+    await this.usersService.updateUser(userId, { password })
+    await this.sessionsService.deleteAllUserSessions(userId)
+
+    return { message: 'Password reset successfully', ok: true }
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.usersService.findById(userId)
+    if (!user) {
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
+    }
+
+    const match = await bcrypt.compare(currentPassword, user.password)
+    if (!match) {
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_PASSWORD_INCORRECT)
+    }
+
+    const samePassword = await bcrypt.compare(newPassword, user.password)
+    if (samePassword) {
+      throw ApiException.badRequest(ApiErrorCodes.AUTH_PASSWORD_SAME)
+    }
+
+    await this.usersService.updateUser(userId, { password: newPassword })
+    await this.sessionsService.deleteAllUserSessions(userId)
+
+    return { message: 'Password changed successfully', ok: true }
   }
 
   async validateUser(phone: string, pass: string) {

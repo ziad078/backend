@@ -16,6 +16,8 @@ import bcrypt from 'bcrypt'
 import { BeneficiariesSignupDto } from '../dto/beneficiaries/beneficiaries-signup.dto'
 import { EnrichersSignupDto } from '../dto/enrichers/enrichers-signup.dto'
 import { ParentSignupDto } from '../dto/parent-signup.dto'
+import { ForgotPasswordDto } from '../dto/forgot-password.dto'
+import { ResetPasswordDto } from '../dto/reset-password.dto'
 import { Public } from '../decorators/public.decorator'
 import { type AuthRequest } from 'src/common/interfaces/auth-request.interface'
 import { AuthProvider, TokenPayload } from '../services/auth.provider'
@@ -126,5 +128,19 @@ export class AuthController {
   @Get('verify-email')
   verifyEmail(@Query('token') token: string) {
     return this.authService.verifyEmail(token)
+  }
+
+  @Public()
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.requestPasswordReset(dto.phone)
+  }
+
+  @Public()
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.password)
   }
 }

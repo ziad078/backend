@@ -33,6 +33,7 @@ export class NotificationProcessor {
     const { delivery, userId, phone, email, title, message, type, metadata } = job.data
     const requiresContent =
       delivery !== NotificationDelivery.VERIFY_EMAIL &&
+      delivery !== NotificationDelivery.RESET_PASSWORD &&
       delivery !== NotificationDelivery.ACCOUNT_CREDENTIALS
 
     if (requiresContent && (!title?.trim() || !message?.trim())) {
@@ -44,6 +45,7 @@ export class NotificationProcessor {
       delivery === NotificationDelivery.EMAIL || delivery === NotificationDelivery.BOTH
 
     const sendVerificationEmail = delivery === NotificationDelivery.VERIFY_EMAIL
+    const sendPasswordResetEmail = delivery === NotificationDelivery.RESET_PASSWORD
     const sendCredentialsEmail = delivery === NotificationDelivery.ACCOUNT_CREDENTIALS
     const sendInApp =
       delivery === NotificationDelivery.IN_APP || delivery === NotificationDelivery.BOTH
@@ -66,6 +68,17 @@ export class NotificationProcessor {
       }
       const token = this.authService.generateVerificationToken(userId)
       await this.email.sendVerificationEmail(email, token)
+    }
+
+    if (sendPasswordResetEmail) {
+      if (!email?.trim()) {
+        this.logger.warn(
+          `Job ${job.id}: password reset requested but no email address provided, skipping`,
+        )
+        return
+      }
+      const token = this.authService.generatePasswordResetToken(userId)
+      await this.email.sendPasswordResetEmail(email, token)
     }
 
     if (sendCredentialsEmail) {

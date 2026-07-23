@@ -7,6 +7,7 @@ import { VerifyEmailTemplate } from '../templates/VerifyEmailTemplate'
 import { WelcomeEmailTemplate } from '../templates/WelcomeEmailTemplate'
 import { GeneralEmailTemplate } from '../templates/GeneralEmailTemplate'
 import { CredentialsEmailTemplate } from '../templates/CredentialsEmailTemplate'
+import { ResetPasswordEmailTemplate } from '../templates/ResetPasswordEmailTemplate'
 
 @Injectable()
 export class EmailProvider {
@@ -72,6 +73,22 @@ export class EmailProvider {
     } catch (err) {
       this.logger.error(
         `Failed to send welcome email to ${email}: ${err instanceof Error ? err.message : String(err)}`,
+      )
+      throw err
+    }
+  }
+
+  async sendPasswordResetEmail(email: string, token: string): Promise<void> {
+    try {
+      const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000'
+      const resetLink = `${frontendUrl}/auth/reset-password?token=${token}`
+
+      const emailHtml = await render(<ResetPasswordEmailTemplate link={resetLink} />)
+
+      await this.mail(email, 'إعادة تعيين كلمة المرور — منصة إثراء الذكاء', emailHtml)
+    } catch (err) {
+      this.logger.error(
+        `Failed to send password reset email to ${email}: ${err instanceof Error ? err.message : String(err)}`,
       )
       throw err
     }

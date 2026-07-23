@@ -43,7 +43,8 @@ export class NotificationsService {
     const needsEmail =
       payload.delivery === NotificationDelivery.EMAIL ||
       payload.delivery === NotificationDelivery.BOTH ||
-      payload.delivery === NotificationDelivery.VERIFY_EMAIL
+      payload.delivery === NotificationDelivery.VERIFY_EMAIL ||
+      payload.delivery === NotificationDelivery.RESET_PASSWORD
 
     if (needsEmail && !payload.email?.trim()) {
       const user = await this.users.findOne({
