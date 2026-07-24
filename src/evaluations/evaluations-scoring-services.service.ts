@@ -107,19 +107,27 @@ export class EvaluationScoringService {
     const maxScore = dimensionResults.reduce((sum, d) => sum + d.maxScore, 0)
     const minScore = dimensionResults.reduce((sum, d) => sum + d.minScore, 0)
 
-    const sorted = [...dimensionResults].sort((a, b) => b.score - a.score)
+    const sorted = [...dimensionResults].sort((a, b) => {
+      const aPct = a.percentage ?? a.score
+      const bPct = b.percentage ?? b.score
+      return bPct - aPct
+    })
+    const dominantDimensions = sorted.slice(0, 3)
+    const overallPercentage =
+      maxScore > minScore
+        ? Number((((totalScore - minScore) / (maxScore - minScore)) * 100).toFixed(2))
+        : null
 
     return {
       type: evaluation.type,
       totalScore,
       minScore,
       maxScore,
-      percentage:
-        maxScore > minScore
-          ? Number((((totalScore - minScore) / (maxScore - minScore)) * 100).toFixed(2))
-          : null,
+      percentage: overallPercentage,
+      overallPercentage,
       dimensions: dimensionResults,
-      dominantDimensions: sorted.slice(0, 3),
+      dominantDimensions,
+      top3: dominantDimensions,
     }
   }
 
@@ -130,9 +138,9 @@ export class EvaluationScoringService {
 
     if (base.totalScore >= 50 && base.totalScore <= 116.7) {
       level = 'منخفض'
-    } else if (base.totalScore >= 116.8 && base.totalScore <= 183.27) {
+    } else if (base.totalScore > 116.7 && base.totalScore <= 183.27) {
       level = 'متوسط'
-    } else if (base.totalScore >= 183.3) {
+    } else if (base.totalScore > 183.27) {
       level = 'مرتفع'
     }
 
@@ -176,13 +184,18 @@ export class EvaluationScoringService {
   private scoreHolland(evaluation: Evaluation, answers: EvaluationAnswer[]) {
     const base = this.scoreByDimensions(evaluation, answers)
 
-    const dimensions = base.dimensions.map((d) => ({
-      ...d,
-      isSuitableInterest: d.score >= 21,
-      level: d.score >= 21 ? 'ميل مهني ملائم' : 'ميل مهني غير ملائم',
-    }))
+    const dimensions = base.dimensions.map((d) => {
+      const suitable = d.score >= 21
+      return {
+        ...d,
+        isSuitableInterest: suitable,
+        suitable,
+        level: suitable ? 'ميل مهني ملائم' : 'ميل مهني غير ملائم',
+      }
+    })
 
     const sorted = [...dimensions].sort((a, b) => b.score - a.score)
+    const dominantDimensions = sorted.slice(0, 3)
 
     return {
       ...base,
@@ -191,11 +204,9 @@ export class EvaluationScoringService {
         base.totalScore >= 126
           ? 'الميول المهنية الكلية ملائمة'
           : 'الميول المهنية الكلية غير ملائمة',
-      hollandCode: sorted
-        .slice(0, 3)
-        .map((d) => d.code.toUpperCase())
-        .join('-'),
-      dominantDimensions: sorted.slice(0, 3),
+      hollandCode: dominantDimensions.map((d) => d.code.toUpperCase()).join('-'),
+      dominantDimensions,
+      top3: dominantDimensions,
     }
   }
 
@@ -206,7 +217,7 @@ export class EvaluationScoringService {
       const abs = Math.abs(d.score)
 
       let strength = 'متوازن'
-      if (abs >= 5 && abs <= 7) strength = 'تفضيل متوسط'
+      if (abs >= 5 && abs <= 8) strength = 'تفضيل متوسط'
       if (abs >= 9 && abs <= 11) strength = 'تفضيل قوي'
 
       let dominantPole: string | null = null
