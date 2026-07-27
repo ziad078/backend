@@ -103,7 +103,7 @@ export class AuthProvider {
       await this.usersService.save(user)
     }
 
-    return { message: 'Email verified successfully', ok: true }
+    return { message: 'Email verified successfully', ok: true, isEmailVerified: true }
   }
 
   async requestPasswordReset(phone: string) {
