@@ -10,13 +10,13 @@ import {
   Req,
 } from '@nestjs/common'
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import type { Request } from 'express'
 import { NotificationsService } from './notifications.service'
 import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto'
 import { DispatchNotificationDto } from './dto/dispatch-notification.dto'
 import { UserRole } from 'src/common/enums/role.enum'
 import { Roles } from 'src/users/decorators/role.decorator'
-import { NotificationDelivery } from './enums/notification-delivery.enum'
 
 type JwtRequestUser = {
   userId: string
@@ -32,20 +32,21 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Post('verify-email')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @ApiOperation({ summary: 'Send verification email' })
   async verifyEmail(@Body() data: { email: string; userId: string }) {
-    await this.notificationsService.enqueue({
-      delivery: NotificationDelivery.VERIFY_EMAIL,
-      email: data.email,
-      userId: data.userId,
-      title: 'Verify your email',
-      message: 'Email verification request',
-      type: 'verify-email',
-    })
+    const result = await this.notificationsService.enqueueVerificationEmail(
+      data.userId,
+      data.email,
+    )
 
     return {
       success: true,
-      message: 'Verification email queued successfully',
+      queued: result.queued,
+      reason: result.reason,
+      message: result.queued
+        ? 'Verification email queued successfully'
+        : 'Verification email was not queued',
     }
   }
 

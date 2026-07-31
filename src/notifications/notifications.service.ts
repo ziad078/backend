@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bull'
 import { ApiException } from 'src/common/exceptions/api.exception'
 import { ApiErrorCodes } from 'src/common/enums/api-error.enum'
-import type { Queue, JobOptions } from 'bull'
+import type { Queue, JobOptions, Job } from 'bull'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Notification } from './entities/notification.entity'
@@ -23,6 +23,43 @@ const DEFAULT_JOB_OPTIONS: JobOptions = {
   removeOnFail: Number(process.env.NOTIFICATION_JOB_REMOVE_ON_FAIL ?? 200),
 }
 
+/** Email must not be retried automatically — retries can duplicate outbound mail. */
+const EMAIL_JOB_OPTIONS: JobOptions = {
+  ...DEFAULT_JOB_OPTIONS,
+  attempts: 1,
+}
+
+const EMAIL_DELIVERIES = new Set<NotificationDelivery>([
+  NotificationDelivery.EMAIL,
+  NotificationDelivery.BOTH,
+  NotificationDelivery.VERIFY_EMAIL,
+  NotificationDelivery.RESET_PASSWORD,
+  NotificationDelivery.ACCOUNT_CREDENTIALS,
+])
+
+function jobOptionsForDelivery(delivery: NotificationDelivery, extra?: JobOptions): JobOptions {
+  const base = EMAIL_DELIVERIES.has(delivery) ? EMAIL_JOB_OPTIONS : DEFAULT_JOB_OPTIONS
+  return { ...base, ...extra }
+}
+
+function dedupeJobId(delivery: NotificationDelivery, userId: string): string | undefined {
+  switch (delivery) {
+    case NotificationDelivery.VERIFY_EMAIL:
+      return `verify_email:${userId}`
+    case NotificationDelivery.RESET_PASSWORD:
+      return `reset_password:${userId}`
+    case NotificationDelivery.ACCOUNT_CREDENTIALS:
+      return `account_credentials:${userId}`
+    default:
+      return undefined
+  }
+}
+
+export type EnqueueVerificationEmailResult = {
+  queued: boolean
+  reason?: 'already_verified' | 'already_queued'
+}
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name)
@@ -36,32 +73,106 @@ export class NotificationsService {
     private readonly users: Repository<User>,
   ) {}
 
+  private async resolveUserEmail(userId: string, email?: string): Promise<string> {
+    const trimmed = email?.trim()
+    if (trimmed) return trimmed
+
+    const user = await this.users.findOne({
+      where: { id: userId },
+      select: ['id', 'email'],
+    })
+
+    if (!user?.email?.trim()) {
+      throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED)
+    }
+
+    return user.email.trim()
+  }
+
+  private async isPendingJob(jobId: string): Promise<boolean> {
+    const existing: Job<NotificationSendJobPayload> | null = await this.queue.getJob(jobId)
+    if (!existing) return false
+
+    const state = await existing.getState()
+    return state === 'waiting' || state === 'delayed' || state === 'active'
+  }
+
+  /**
+   * Queue a verification email once per user while a send is pending.
+   * Skips users who are already verified.
+   */
+  async enqueueVerificationEmail(
+    userId: string,
+    email?: string,
+  ): Promise<EnqueueVerificationEmailResult> {
+    const user = await this.users.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'isEmailVerified'],
+    })
+
+    if (!user) {
+      throw ApiException.notFound(ApiErrorCodes.USER_NOT_FOUND)
+    }
+
+    if (user.isEmailVerified) {
+      this.logger.log(`Skipping verification email: user ${userId} is already verified`)
+      return { queued: false, reason: 'already_verified' }
+    }
+
+    const jobId = dedupeJobId(NotificationDelivery.VERIFY_EMAIL, userId)!
+    if (await this.isPendingJob(jobId)) {
+      this.logger.log(`Verification email deduped for user ${userId} (job already queued)`)
+      return { queued: false, reason: 'already_queued' }
+    }
+
+    const resolvedEmail = await this.resolveUserEmail(userId, email ?? user.email)
+
+    await this.queue.add(
+      'send',
+      {
+        delivery: NotificationDelivery.VERIFY_EMAIL,
+        userId,
+        email: resolvedEmail,
+        title: '',
+        message: '',
+        type: 'verify-email',
+      },
+      jobOptionsForDelivery(NotificationDelivery.VERIFY_EMAIL, { jobId }),
+    )
+
+    return { queued: true }
+  }
+
   /**
    * Enqueue a notification for asynchronous delivery (email, in-app, or both).
    */
   async enqueue(payload: NotificationSendJobPayload, jobOptions?: JobOptions): Promise<void> {
+    if (payload.delivery === NotificationDelivery.VERIFY_EMAIL) {
+      await this.enqueueVerificationEmail(payload.userId, payload.email)
+      return
+    }
+
     const needsEmail =
       payload.delivery === NotificationDelivery.EMAIL ||
       payload.delivery === NotificationDelivery.BOTH ||
-      payload.delivery === NotificationDelivery.VERIFY_EMAIL ||
       payload.delivery === NotificationDelivery.RESET_PASSWORD
 
     if (needsEmail && !payload.email?.trim()) {
-      const user = await this.users.findOne({
-        where: { id: payload.userId },
-        select: ['id', 'email'],
-      })
+      payload.email = await this.resolveUserEmail(payload.userId)
+    }
 
-      if (!user?.email) {
-        throw ApiException.badRequest(ApiErrorCodes.NOTIFICATION_EMAIL_REQUIRED)
-      }
-
-      payload.email = user.email
+    const jobId = dedupeJobId(payload.delivery, payload.userId)
+    if (jobId && (await this.isPendingJob(jobId))) {
+      this.logger.log(
+        `Notification deduped (${payload.delivery}) for user ${payload.userId} (job already queued)`,
+      )
+      return
     }
 
     await this.queue.add('send', payload, {
-      ...DEFAULT_JOB_OPTIONS,
+      ...jobOptionsForDelivery(payload.delivery),
       ...jobOptions,
+      ...(jobId ? { jobId } : {}),
     })
   }
 
@@ -102,7 +213,7 @@ export class NotificationsService {
       metadata: dto.metadata ?? null,
     }
 
-    const job = await this.queue.add('send', payload, DEFAULT_JOB_OPTIONS)
+    const job = await this.queue.add('send', payload, jobOptionsForDelivery(dto.delivery))
     this.logger.log(`Queued notification job ${job.id} (${dto.delivery}) for user ${dto.userId}`)
     return { jobId: job.id }
   }

@@ -298,16 +298,10 @@ export class AuthProvider {
         userId: user.id,
         title: 'Welcome 🎉',
         message: `Welcome ${user.name}, we're happy to have you معنا!`,
-        delivery: NotificationDelivery.BOTH, // email + inapp
+        delivery: NotificationDelivery.BOTH,
         email: user.email,
       })
-      await this.notificationsService.enqueue({
-        userId: user.id,
-        title: 'verification email',
-        message: `Welcome ${user.name}, we're happy to have you معنا!`,
-        delivery: NotificationDelivery.VERIFY_EMAIL, // email + inapp
-        email: user.email,
-      })
+      await this.notificationsService.enqueueVerificationEmail(user.id, user.email)
       return { user, enricher }
     })
   }
@@ -340,13 +334,7 @@ export class AuthProvider {
         metadata: { name: user.name },
       })
 
-      await this.notificationsService.enqueue({
-        delivery: NotificationDelivery.VERIFY_EMAIL,
-        userId: user.id,
-        email: user.email,
-        title: '',
-        message: '',
-      })
+      await this.notificationsService.enqueueVerificationEmail(user.id, user.email)
 
       return {
         user,

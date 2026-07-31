@@ -32,13 +32,7 @@ export class OrgNotificationListener {
       message: `مرحبا ${payload.ownerName} نشكرك علي التسجيل لدي اثراء`,
       metadata: payload,
     })
-    await this.notifications.enqueue({
-      delivery: NotificationDelivery.VERIFY_EMAIL,
-      userId: payload.ownerId,
-      email: payload.ownerEmail,
-      title: '',
-      message: '',
-    })
+    await this.notifications.enqueueVerificationEmail(payload.ownerId, payload.ownerEmail)
   }
 
   @OnEvent(OrganizationEvents.APPROVED)
