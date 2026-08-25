@@ -38,7 +38,7 @@ export class EvaluationSlotService {
   ) {}
 
   private extraAttemptPriceSar(): number {
-    return Number(this.config.get<string>('EXTRA_ATTEMPT_PRICE_SAR') ?? '199')
+    return Number(this.config.get<string>('EXTRA_ATTEMPT_PRICE_SAR') ?? '39')
   }
 
   async loadPrivateChildOrThrow(
