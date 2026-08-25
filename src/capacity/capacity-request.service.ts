@@ -43,7 +43,7 @@ export class CapacityRequestService {
   ) {}
 
   private capacityUnitPriceSar(): number {
-    return Number(this.config.get<string>('CAPACITY_UNIT_PRICE_SAR') ?? '99')
+    return Number(this.config.get<string>('CAPACITY_UNIT_PRICE_SAR') ?? '39')
   }
 
   async create(
